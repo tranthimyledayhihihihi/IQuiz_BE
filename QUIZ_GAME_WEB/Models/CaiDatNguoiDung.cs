@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace QUIZ_GAME_WEB.Models
 {
@@ -6,10 +7,15 @@ namespace QUIZ_GAME_WEB.Models
     {
         [Key]
         public int SettingID { get; set; }
+        [Required]
         public int UserID { get; set; }
         public bool AmThanh { get; set; } = true;
         public bool NhacNen { get; set; } = true;
         public bool ThongBao { get; set; } = true;
+        [MaxLength(20)]
         public string NgonNgu { get; set; } = "vi";
+
+        [ForeignKey("UserID")]
+        public virtual NguoiDung NguoiDung { get; set; }
     }
 }
