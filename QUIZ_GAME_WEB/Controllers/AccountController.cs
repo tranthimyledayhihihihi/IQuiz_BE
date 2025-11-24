@@ -1,111 +1,118 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QUIZ_GAME_WEB.Data;
-using QUIZ_GAME_WEB.Models;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims; // <-- Đã có
-using System.Text;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.Extensions.Configuration;
+using QUIZ_GAME_WEB.Models.CoreEntities; // NguoiDung
+using System.Linq;
+using System.Threading.Tasks;
 
-// Namespace của bạn (có thể là .User)
-namespace QUIZ_GAME_WEB.Controllers.User
+// Namespace đã được đặt về thư mục gốc Controllers
+namespace QUIZ_GAME_WEB.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/user/[controller]")]
     [ApiController]
     public class AccountController : ControllerBase
     {
         private readonly QuizGameContext _context;
-        private readonly IConfiguration _config;
 
-        public AccountController(QuizGameContext context, IConfiguration config)
+        public AccountController(QuizGameContext context)
         {
             _context = context;
-            _config = config;
         }
 
-        // ... (Hàm Register của bạn giữ nguyên) ...
-        [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] DangKyModel model)
+        // ===============================================
+        // 🔑 API ĐỔI MẬT KHẨU (CHANGE PASSWORD)
+        // ===============================================
+
+        // POST: api/user/Account/ChangePassword
+        [HttpPost("ChangePassword")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordModel model)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-            if (await _context.NguoiDungs.AnyAsync(u => u.TenDangNhap == model.TenDangNhap))
-                return BadRequest(new { message = "Tên đăng nhập đã tồn tại" });
-            if (await _context.NguoiDungs.AnyAsync(u => u.Email == model.Email))
-                return BadRequest(new { message = "Email đã tồn tại" });
+            if (model == null) return BadRequest("Dữ liệu không hợp lệ.");
 
-            var newUser = new NguoiDung
+            var user = await _context.NguoiDungs.FindAsync(model.UserID);
+
+            if (user == null)
             {
-                TenDangNhap = model.TenDangNhap,
-                Email = model.Email,
-                MatKhau = model.MatKhau, // ⚠️
-                HoTen = model.HoTen,
-                NgayDangKy = DateTime.Now,
-                TrangThai = true
-            };
-            _context.NguoiDungs.Add(newUser);
-            await _context.SaveChangesAsync();
-            return Ok(new { message = "Đăng ký thành công" });
-        }
-
-        // ... (Hàm Login của bạn giữ nguyên) ...
-        [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] DangNhapModel model)
-        {
-            var user = await _context.NguoiDungs.FirstOrDefaultAsync(u => u.TenDangNhap == model.TenDangNhap);
-
-            if (user == null || user.MatKhau != model.MatKhau)
-            {
-                return Unauthorized(new { message = "Tên đăng nhập hoặc mật khẩu không đúng" });
+                return NotFound("Người dùng không tồn tại.");
             }
 
-            user.LanDangNhapCuoi = DateTime.Now;
+            // Logic nghiệp vụ: 1. Xác thực mật khẩu hiện tại
+            if (!VerifyPassword(model.CurrentPassword, user.MatKhau))
+            {
+                return Unauthorized("Mật khẩu hiện tại không đúng.");
+            }
+
+            // Logic nghiệp vụ: 2. Cập nhật mật khẩu mới (đã hash)
+            user.MatKhau = HashPassword(model.NewPassword);
             _context.NguoiDungs.Update(user);
             await _context.SaveChangesAsync();
 
-            var tokenString = CreateToken(user);
-
-            return Ok(new
-            {
-                token = tokenString,
-                userId = user.UserID,
-                tenNguoiDung = user.HoTen
-            });
+            return Ok(new { Message = "Đổi mật khẩu thành công." });
         }
 
-        // === SỬA LẠI HÀM CreateToken ===
-        private string CreateToken(NguoiDung user)
+        // ===============================================
+        // ✏️ API ĐỔI TÊN ĐĂNG NHẬP (CHANGE USERNAME)
+        // ===============================================
+
+        // POST: api/user/Account/ChangeUsername
+        [HttpPost("ChangeUsername")]
+        public async Task<IActionResult> ChangeUsername([FromBody] ChangeUsernameModel model)
         {
-            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
-            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
-
-            // Tạo danh sách Claims
-            var claims = new List<Claim> // <-- Đổi thành List<Claim>
+            if (model == null || string.IsNullOrWhiteSpace(model.NewUsername))
             {
-                new Claim(JwtRegisteredClaimNames.Sub, user.UserID.ToString()),
-                new Claim(JwtRegisteredClaimNames.Name, user.TenDangNhap),
-                new Claim(ClaimTypes.NameIdentifier, user.UserID.ToString())
-            };
-
-            // === THÊM LOGIC PHÂN QUYỀN TẠI ĐÂY ===
-            if (user.TenDangNhap.ToLower() == "admin")
-            {
-                claims.Add(new Claim(ClaimTypes.Role, "Admin"));
+                return BadRequest("Tên đăng nhập mới không được để trống.");
             }
-            else
+
+            var user = await _context.NguoiDungs.FindAsync(model.UserID);
+
+            if (user == null)
             {
-                claims.Add(new Claim(ClaimTypes.Role, "User"));
+                return NotFound("Người dùng không tồn tại.");
             }
-            // ======================================
 
-            var token = new JwtSecurityToken(
-                issuer: _config["Jwt:Issuer"],
-                audience: _config["Jwt:Audience"],
-                claims: claims, // <-- Sử dụng danh sách claims đã có quyền
-                expires: DateTime.Now.AddHours(24),
-                signingCredentials: credentials);
+            // Logic nghiệp vụ: Kiểm tra tính duy nhất của tên đăng nhập mới
+            if (await _context.NguoiDungs.AnyAsync(n => n.TenDangNhap == model.NewUsername))
+            {
+                return Conflict("Tên đăng nhập mới đã được sử dụng.");
+            }
 
-            return new JwtSecurityTokenHandler().WriteToken(token);
+            user.TenDangNhap = model.NewUsername;
+            _context.NguoiDungs.Update(user);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = "Đổi tên đăng nhập thành công." });
         }
+
+
+        // ===============================================
+        // HÀM HỖ TRỢ (ĐƯỢC ĐẶT NỘI BỘ TRONG CONTROLLER)
+        // ===============================================
+
+        private string HashPassword(string password)
+        {
+            // CHÚ Ý: Thay bằng logic hashing thực tế (ví dụ: BCrypt)
+            return $"hashed_{password}_password";
+        }
+
+        private bool VerifyPassword(string inputPassword, string hashedPassword)
+        {
+            // CHÚ Ý: Thay bằng logic verification thực tế
+            return hashedPassword == HashPassword(inputPassword);
+        }
+    }
+
+    // DTO-LIKE MODELS
+
+    public class ChangePasswordModel
+    {
+        public int UserID { get; set; }
+        public string CurrentPassword { get; set; }
+        public string NewPassword { get; set; }
+    }
+
+    public class ChangeUsernameModel
+    {
+        public int UserID { get; set; }
+        public string NewUsername { get; set; }
     }
 }

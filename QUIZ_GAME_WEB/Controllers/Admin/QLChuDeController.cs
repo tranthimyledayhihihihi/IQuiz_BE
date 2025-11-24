@@ -1,16 +1,11 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QUIZ_GAME_WEB.Data;
-using QUIZ_GAME_WEB.Models;
-using System.Threading.Tasks;
+using QUIZ_GAME_WEB.Models.QuizModels; // ChuDe
 
-// Namespace phải khớp với thư mục 'Admin'
-namespace QUIZ_GAME_WEB.Controllers.Admin
+namespace QUIZ_GAME_WEB.Controllers
 {
-    [Authorize(Roles = "Admin")]
-    // [Authorize]
-    [Route("api/[controller]")]
+    [Route("api/admin/[controller]")]
     [ApiController]
     public class QLChuDeController : ControllerBase
     {
@@ -21,66 +16,42 @@ namespace QUIZ_GAME_WEB.Controllers.Admin
             _context = context;
         }
 
-        /// <summary>
-        /// (Admin) Lấy TẤT CẢ chủ đề (bao gồm cả chủ đề bị ẩn).
-        /// </summary>
-        // GET: api/QLChuDe
+        // GET: api/admin/QLChuDe
         [HttpGet]
-        public async Task<IActionResult> GetTatCaChuDe()
+        public async Task<ActionResult<IEnumerable<ChuDe>>> GetChuDes()
         {
-            var chuDes = await _context.ChuDes.ToListAsync();
-            return Ok(chuDes);
+            return await _context.ChuDes.ToListAsync();
         }
 
-        /// <summary>
-        /// (Admin) Lấy chi tiết 1 chủ đề.
-        /// </summary>
-        // GET: api/QLChuDe/1
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetChuDe(int id)
+        // POST: api/admin/QLChuDe
+        [HttpPost]
+        public async Task<ActionResult<ChuDe>> PostChuDe(ChuDe chuDe)
         {
-            var chuDe = await _context.ChuDes.FindAsync(id);
-
-            if (chuDe == null)
+            // Logic nghiệp vụ: Kiểm tra trùng tên
+            if (_context.ChuDes.Any(c => c.TenChuDe == chuDe.TenChuDe))
             {
-                return NotFound();
+                return Conflict("Tên Chủ Đề đã tồn tại.");
             }
 
-            return Ok(chuDe);
-        }
-
-        /// <summary>
-        /// (Admin) Tạo một chủ đề mới.
-        /// </summary>
-        // POST: api/QLChuDe
-        [HttpPost]
-        public async Task<IActionResult> CreateChuDe([FromBody] ChuDe chuDe)
-        {
-            // Bỏ qua ChuDeID vì nó là IDENTITY
-            var newChuDe = new ChuDe
-            {
-                TenChuDe = chuDe.TenChuDe,
-                MoTa = chuDe.MoTa,
-                TrangThai = chuDe.TrangThai
-            };
-
-            _context.ChuDes.Add(newChuDe);
+            _context.ChuDes.Add(chuDe);
             await _context.SaveChangesAsync();
 
-            // Trả về kết quả 201 Created với đối tượng vừa tạo
-            return CreatedAtAction(nameof(GetChuDe), new { id = newChuDe.ChuDeID }, newChuDe);
+            return CreatedAtAction(nameof(GetChuDes), new { id = chuDe.ChuDeID }, chuDe);
         }
 
-        /// <summary>
-        /// (Admin) Cập nhật một chủ đề.
-        /// </summary>
-        // PUT: api/QLChuDe/1
+        // PUT: api/admin/QLChuDe/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateChuDe(int id, [FromBody] ChuDe chuDe)
+        public async Task<IActionResult> PutChuDe(int id, ChuDe chuDe)
         {
             if (id != chuDe.ChuDeID)
             {
                 return BadRequest();
+            }
+
+            // Logic nghiệp vụ: Kiểm tra trùng tên (trừ chính nó)
+            if (_context.ChuDes.Any(c => c.TenChuDe == chuDe.TenChuDe && c.ChuDeID != id))
+            {
+                return Conflict("Tên Chủ Đề đã được sử dụng bởi chủ đề khác.");
             }
 
             _context.Entry(chuDe).State = EntityState.Modified;
@@ -95,19 +66,13 @@ namespace QUIZ_GAME_WEB.Controllers.Admin
                 {
                     return NotFound();
                 }
-                else
-                {
-                    throw;
-                }
+                throw;
             }
 
-            return NoContent(); // 204 No Content - Cập nhật thành công
+            return NoContent();
         }
 
-        /// <summary>
-        /// (Admin) Xóa một chủ đề.
-        /// </summary>
-        // DELETE: api/QLChuDe/5
+        // DELETE: api/admin/QLChuDe/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteChuDe(int id)
         {
@@ -117,10 +82,16 @@ namespace QUIZ_GAME_WEB.Controllers.Admin
                 return NotFound();
             }
 
+            // Logic nghiệp vụ: Ngăn xóa nếu Chủ đề đang được sử dụng
+            if (await _context.CauHois.AnyAsync(ch => ch.ChuDeID == id))
+            {
+                return Conflict("Không thể xóa. Chủ đề này đang được sử dụng trong các câu hỏi.");
+            }
+
             _context.ChuDes.Remove(chuDe);
             await _context.SaveChangesAsync();
 
-            return NoContent(); // 204 No Content - Xóa thành công
+            return NoContent();
         }
     }
 }

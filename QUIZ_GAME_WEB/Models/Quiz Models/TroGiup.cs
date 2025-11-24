@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace QUIZ_GAME_WEB.Models
+namespace QUIZ_GAME_WEB.Models.QuizModels
 {
     public class TroGiup
     {

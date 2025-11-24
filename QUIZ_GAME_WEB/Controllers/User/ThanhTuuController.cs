@@ -1,17 +1,13 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QUIZ_GAME_WEB.Data;
-using QUIZ_GAME_WEB.Models;
-using System.Linq;
-using System.Security.Claims;
-using System.Threading.Tasks;
+using QUIZ_GAME_WEB.Models.CoreEntities; // NguoiDung
+using QUIZ_GAME_WEB.Models.ResultsModels; // ThanhTuu, ThuongNgay
+using QUIZ_GAME_WEB.Models.SocialRankingModels; // ChuoiNgay
 
-// Đảm bảo namespace khớp với thư mục 'User'
 namespace QUIZ_GAME_WEB.Controllers.User
 {
-    [Authorize]
-    [Route("api/[controller]")]
+    [Route("api/user/[controller]")]
     [ApiController]
     public class ThanhTuuController : ControllerBase
     {
@@ -22,60 +18,79 @@ namespace QUIZ_GAME_WEB.Controllers.User
             _context = context;
         }
 
-        /// <summary>
-        /// Lấy danh sách TẤT CẢ các thành tựu/huy hiệu có trong game.
-        /// </summary>
-        // GET: api/thanhtuu/all
-        [HttpGet("all")]
-        public async Task<IActionResult> GetAllAchievements()
+        // GET: api/user/ThanhTuu/All
+        [HttpGet("All")]
+        public async Task<ActionResult<IEnumerable<ThanhTuu>>> GetAllThanhTuus()
         {
-            var allAchievements = await _context.ThanhTuus.ToListAsync();
-            return Ok(allAchievements);
+            return await _context.ThanhTuus.ToListAsync();
         }
 
-        /// <summary>
-        /// Lấy danh sách các thành tựu mà người dùng ĐÃ ĐẠT ĐƯỢC.
-        /// </summary>
-        /// <remarks>
-        /// LƯU Ý: Đây là logic mô phỏng. Trong dự án thật, bạn cần một
-        /// bảng 'NguoiDung_ThanhTuu' để lưu huy hiệu đã mở khóa,
-        /// hoặc kiểm tra logic phức tạp dựa trên 'DieuKien'.
-        /// </remarks>
-        // GET: api/thanhtuu/me
-        [HttpGet("me")]
-        public async Task<IActionResult> GetMyAchievements()
+        // GET: api/user/ThanhTuu/User/{userId}
+        [HttpGet("User/{userId}")]
+        public async Task<ActionResult<IEnumerable<ThanhTuu>>> GetUserAchievedThanhTuus(int userId)
         {
-            // 1. Lấy UserID từ token
-            var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            int userId = int.Parse(userIdString!);
+            // Logic nghiệp vụ: Giả định chỉ trả về các thành tựu mẫu
+            return await _context.ThanhTuus.Take(5).ToListAsync();
+        }
 
-            // 2. Lấy tất cả thành tựu có thể có
-            var allAchievements = await _context.ThanhTuus.ToListAsync();
-            var myUnlockedAchievements = new List<ThanhTuu>();
+        // GET: api/user/ThanhTuu/DailyReward/{userId}
+        [HttpGet("DailyReward/{userId}")]
+        public async Task<ActionResult<ThuongNgay>> GetDailyRewardStatus(int userId)
+        {
+            var today = DateTime.Today;
+            var thuongNgay = await _context.ThuongNgays
+                .FirstOrDefaultAsync(t => t.UserID == userId && t.NgayNhan == today);
 
-            // --- LOGIC KIỂM TRA (MÔ PHỎNG) ---
-            // Chúng ta sẽ kiểm tra điều kiện của từng huy hiệu
-
-            // 3. Lấy dữ liệu thống kê của người dùng
-            var userGameCount = await _context.KetQuas.CountAsync(kq => kq.UserID == userId);
-
-            // 4. Duyệt qua từng huy hiệu và kiểm tra
-            foreach (var achievement in allAchievements)
+            if (thuongNgay != null)
             {
-                // Kiểm tra huy hiệu "Lính mới" (từ SeedData)
-                if (achievement.DieuKien == "played_1_game" && userGameCount > 0)
-                {
-                    myUnlockedAchievements.Add(achievement);
-                }
-
-                // (Bạn có thể thêm các logic 'else if' khác ở đây)
-                // else if (achievement.DieuKien == "correct_50_history" && ...)
-                // {
-                //     myUnlockedAchievements.Add(achievement);
-                // }
+                return Ok(thuongNgay);
             }
 
-            return Ok(myUnlockedAchievements);
+            // Logic nghiệp vụ: Nếu chưa nhận hôm nay, tạo đối tượng thưởng mới để gợi ý
+            return Ok(new ThuongNgay
+            {
+                UserID = userId,
+                NgayNhan = today,
+                PhanThuong = "100 điểm thưởng",
+                DiemThuong = 100,
+                TrangThaiNhan = false
+            });
+        }
+
+        // POST: api/user/ThanhTuu/ClaimDailyReward/{userId}
+        [HttpPost("ClaimDailyReward/{userId}")]
+        public async Task<IActionResult> ClaimDailyReward(int userId)
+        {
+            var today = DateTime.Today;
+            var thuongNgay = await _context.ThuongNgays
+                .FirstOrDefaultAsync(t => t.UserID == userId && t.NgayNhan == today);
+
+            if (thuongNgay != null && thuongNgay.TrangThaiNhan == true)
+            {
+                return Conflict("Phần thưởng hôm nay đã được nhận.");
+            }
+
+            // Ghi nhận người dùng đã nhận thưởng
+            if (thuongNgay == null)
+            {
+                thuongNgay = new ThuongNgay
+                {
+                    UserID = userId,
+                    NgayNhan = today,
+                    PhanThuong = "100 điểm thưởng",
+                    DiemThuong = 100,
+                    TrangThaiNhan = true
+                };
+                _context.ThuongNgays.Add(thuongNgay);
+            }
+            else
+            {
+                thuongNgay.TrangThaiNhan = true;
+                _context.ThuongNgays.Update(thuongNgay);
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { Message = "Đã nhận thưởng ngày thành công." });
         }
     }
-}   
+}

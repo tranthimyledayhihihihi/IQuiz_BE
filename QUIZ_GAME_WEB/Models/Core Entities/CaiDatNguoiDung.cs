@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace QUIZ_GAME_WEB.Models
+namespace QUIZ_GAME_WEB.Models.CoreEntities
 {
     public class CaiDatNguoiDung
     {

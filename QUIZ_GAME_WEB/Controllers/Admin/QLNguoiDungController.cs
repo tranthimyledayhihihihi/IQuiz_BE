@@ -1,18 +1,12 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QUIZ_GAME_WEB.Data;
-using QUIZ_GAME_WEB.Models;
-using System.Linq;
-using System.Security.Claims;
-using System.Threading.Tasks;
+using QUIZ_GAME_WEB.Models.CoreEntities; // NguoiDung, Admin
+using QUIZ_GAME_WEB.Models; // VaiTro
 
-// Namespace phải khớp với thư mục 'Admin'
-namespace QUIZ_GAME_WEB.Controllers.Admin
+namespace QUIZ_GAME_WEB.Controllers
 {
-    [Authorize(Roles = "Admin")]
-    // [Authorize]
-    [Route("api/[controller]")]
+    [Route("api/admin/[controller]")]
     [ApiController]
     public class QLNguoiDungController : ControllerBase
     {
@@ -23,99 +17,72 @@ namespace QUIZ_GAME_WEB.Controllers.Admin
             _context = context;
         }
 
-        /// <summary>
-        /// (Admin) Lấy danh sách người dùng (có phân trang).
-        /// </summary>
-        // GET: api/QLNguoiDung
+        // GET: api/admin/QLNguoiDung (Lấy danh sách người dùng)
         [HttpGet]
-        public async Task<IActionResult> GetNguoiDungs([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        public async Task<ActionResult<IEnumerable<NguoiDung>>> GetNguoiDungs()
         {
-            var query = _context.NguoiDungs
-                .OrderByDescending(u => u.NgayDangKy); // Người mới nhất lên đầu
-
-            var totalItems = await query.CountAsync();
-
-            var users = await query
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .Select(u => new NguoiDungAdminViewModel // Sử dụng ViewModel
-                {
-                    UserID = u.UserID,
-                    TenDangNhap = u.TenDangNhap,
-                    Email = u.Email,
-                    HoTen = u.HoTen,
-                    NgayDangKy = u.NgayDangKy,
-                    LanDangNhapCuoi = u.LanDangNhapCuoi,
-                    TrangThai = u.TrangThai
-                    // Không bao giờ trả về MatKhau!
-                })
+            // Logic nghiệp vụ: Lấy chi tiết Vai Trò Admin
+            return await _context.NguoiDungs
+                .Include(n => n.Admin)
+                .ThenInclude(a => a.VaiTro)
                 .ToListAsync();
-
-            return Ok(new
-            {
-                TotalItems = totalItems,
-                TotalPages = (int)Math.Ceiling(totalItems / (double)pageSize),
-                CurrentPage = page,
-                PageSize = pageSize,
-                Data = users
-            });
         }
 
-        /// <summary>
-        /// (Admin) Lấy chi tiết 1 người dùng (vẫn dùng ViewModel).
-        /// </summary>
-        // GET: api/QLNguoiDung/2
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetNguoiDung(int id)
-        {
-            var user = await _context.NguoiDungs
-                .Where(u => u.UserID == id)
-                .Select(u => new NguoiDungAdminViewModel // Dùng ViewModel
-                {
-                    UserID = u.UserID,
-                    TenDangNhap = u.TenDangNhap,
-                    Email = u.Email,
-                    HoTen = u.HoTen,
-                    NgayDangKy = u.NgayDangKy,
-                    LanDangNhapCuoi = u.LanDangNhapCuoi,
-                    TrangThai = u.TrangThai
-                })
-                .FirstOrDefaultAsync();
-
-            if (user == null)
-            {
-                return NotFound();
-            }
-
-            return Ok(user);
-        }
-
-        /// <summary>
-        /// (Admin) Cập nhật trạng thái (Khóa/Mở khóa) tài khoản.
-        /// </summary>
-        // PUT: api/QLNguoiDung/2/SetTrangThai
-        [HttpPut("{id}/SetTrangThai")]
-        public async Task<IActionResult> SetTrangThaiNguoiDung(int id, [FromBody] bool trangThai)
+        // POST: api/admin/QLNguoiDung/ToggleStatus/{id}
+        // Chức năng: Khóa/Mở khóa tài khoản (chuyển đổi TrangThai)
+        [HttpPost("ToggleStatus/{id}")]
+        public async Task<IActionResult> ToggleUserStatus(int id)
         {
             var user = await _context.NguoiDungs.FindAsync(id);
 
             if (user == null)
             {
-                return NotFound();
+                return NotFound("Người dùng không tồn tại.");
             }
 
-            // Không cho phép admin tự khóa chính mình
-            var adminIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (user.UserID.ToString() == adminIdString)
+            // Logic nghiệp vụ: Không được khóa Super Admin (UserID=1)
+            if (user.UserID == 1)
             {
-                return BadRequest(new { message = "Không thể tự khóa tài khoản Admin." });
+                return Forbid("Không thể khóa tài khoản Super Admin.");
             }
 
-            user.TrangThai = trangThai; // trangThai = false (Khóa), true (Mở)
-            _context.Entry(user).State = EntityState.Modified;
+            user.TrangThai = !user.TrangThai; // Đảo ngược trạng thái
+            _context.NguoiDungs.Update(user);
             await _context.SaveChangesAsync();
 
-            return NoContent(); // 204 No Content - Cập nhật thành công
+            return Ok(new { Message = $"Đã {(user.TrangThai ? "mở khóa" : "khóa")} tài khoản {user.TenDangNhap}" });
+        }
+
+        // POST: api/admin/QLNguoiDung/SetAdminRole/{userId}/{vaiTroId}
+        // Chức năng: Cấp/Hạ quyền Admin (thao tác trên bảng Admin)
+        [HttpPost("SetAdminRole/{userId}/{vaiTroId}")]
+        public async Task<IActionResult> SetAdminRole(int userId, int vaiTroId)
+        {
+            var user = await _context.NguoiDungs.FindAsync(userId);
+            if (user == null) return NotFound("Người dùng không tồn tại.");
+
+            if (!await _context.VaiTros.AnyAsync(v => v.VaiTroID == vaiTroId))
+            {
+                return BadRequest("VaiTroID không hợp lệ.");
+            }
+
+            var adminRecord = await _context.Admins.SingleOrDefaultAsync(a => a.UserID == userId);
+
+            if (adminRecord == null)
+            {
+                // Thêm bản ghi Admin mới nếu người dùng chưa có
+                adminRecord = new Models.CoreEntities.Admin { UserID = userId, VaiTroID = vaiTroId, TrangThai = true, NgayTao = DateTime.Now };
+                _context.Admins.Add(adminRecord);
+            }
+            else
+            {
+                // Cập nhật VaiTroID
+                adminRecord.VaiTroID = vaiTroId;
+                _context.Admins.Update(adminRecord);
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { Message = $"Đã cập nhật Vai Trò Admin cho người dùng ID {userId}." });
         }
     }
 }

@@ -1,17 +1,11 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using QUIZ_GAME_WEB.Data;
-using QUIZ_GAME_WEB.Models;
-using System.Linq;
-using System.Threading.Tasks;
+using QUIZ_GAME_WEB.Data; // <== SỬA TẠI ĐÂY
+using QUIZ_GAME_WEB.Models.QuizModels; // CauHoi, ChuDe, DoKho
 
-// Namespace phải khớp với thư mục 'Admin'
-namespace QUIZ_GAME_WEB.Controllers.Admin
+namespace QUIZ_GAME_WEB.Controllers
 {
-    [Authorize(Roles = "Admin")]
-    // [Authorize]
-    [Route("api/[controller]")]
+    [Route("api/admin/[controller]")]
     [ApiController]
     public class QLCauHoiController : ControllerBase
     {
@@ -22,84 +16,69 @@ namespace QUIZ_GAME_WEB.Controllers.Admin
             _context = context;
         }
 
-        /// <summary>
-        /// (Admin) Lấy danh sách câu hỏi (có phân trang và join).
-        /// </summary>
-        // GET: api/QLCauHoi
+        // GET: api/admin/QLCauHoi 
         [HttpGet]
-        public async Task<IActionResult> GetCauHois([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        public async Task<ActionResult<IEnumerable<CauHoi>>> GetCauHois()
         {
-            var query = _context.CauHois
-                .Include(c => c.ChuDe) // Join với bảng Chủ Đề
-                .Include(c => c.DoKho) // Join với bảng Độ Khó
-                .OrderBy(c => c.CauHoiID);
-
-            var totalItems = await query.CountAsync();
-
-            var cauHois = await query
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .Select(q => new CauHoiAdminViewModel // Sử dụng ViewModel
-                {
-                    CauHoiID = q.CauHoiID,
-                    NoiDung = q.NoiDung,
-                    TenChuDe = q.ChuDe.TenChuDe, // Lấy tên chủ đề
-                    TenDoKho = q.DoKho.TenDoKho, // Lấy tên độ khó
-                    DapAnDung = q.DapAnDung
-                })
+            return await _context.CauHois
+                .Include(ch => ch.ChuDe)
+                .Include(ch => ch.DoKho)
                 .ToListAsync();
-
-            return Ok(new
-            {
-                TotalItems = totalItems,
-                TotalPages = (int)Math.Ceiling(totalItems / (double)pageSize),
-                CurrentPage = page,
-                PageSize = pageSize,
-                Data = cauHois
-            });
         }
 
-        /// <summary>
-        /// (Admin) Lấy chi tiết 1 câu hỏi (dùng Model gốc).
-        /// </summary>
-        // GET: api/QLCauHoi/1
+        // GET: api/admin/QLCauHoi/{id}
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetCauHoi(int id)
+        public async Task<ActionResult<CauHoi>> GetCauHoi(int id)
         {
-            var cauHoi = await _context.CauHois.FindAsync(id);
+            var cauHoi = await _context.CauHois
+                .Include(ch => ch.ChuDe)
+                .Include(ch => ch.DoKho)
+                .FirstOrDefaultAsync(ch => ch.CauHoiID == id);
 
             if (cauHoi == null)
             {
                 return NotFound();
             }
-
-            return Ok(cauHoi);
+            return cauHoi;
         }
 
-        /// <summary>
-        /// (Admin) Tạo một câu hỏi mới.
-        /// </summary>
-        // POST: api/QLCauHoi
+        // POST: api/admin/QLCauHoi
         [HttpPost]
-        public async Task<IActionResult> CreateCauHoi([FromBody] CauHoi cauHoi)
+        public async Task<ActionResult<CauHoi>> PostCauHoi(CauHoi cauHoi)
         {
-            // Chúng ta dùng trực tiếp Model 'CauHoi' để tạo
+            // Logic nghiệp vụ: Kiểm tra ChuDeID và DoKhoID có hợp lệ không
+            if (!await _context.ChuDes.AnyAsync(c => c.ChuDeID == cauHoi.ChuDeID) ||
+                !await _context.DoKhos.AnyAsync(d => d.DoKhoID == cauHoi.DoKhoID))
+            {
+                return BadRequest("ChuDeID hoặc DoKhoID không hợp lệ.");
+            }
+
             _context.CauHois.Add(cauHoi);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetCauHoi), new { id = cauHoi.CauHoiID }, cauHoi);
+            // Lấy lại đối tượng đầy đủ để trả về client
+            var createdCauHoi = await _context.CauHois
+                .Include(ch => ch.ChuDe)
+                .Include(ch => ch.DoKho)
+                .FirstOrDefaultAsync(ch => ch.CauHoiID == cauHoi.CauHoiID);
+
+            return CreatedAtAction(nameof(GetCauHoi), new { id = cauHoi.CauHoiID }, createdCauHoi);
         }
 
-        /// <summary>
-        /// (Admin) Cập nhật một câu hỏi.
-        /// </summary>
-        // PUT: api/QLCauHoi/1
+        // PUT: api/admin/QLCauHoi/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateCauHoi(int id, [FromBody] CauHoi cauHoi)
+        public async Task<IActionResult> PutCauHoi(int id, CauHoi cauHoi)
         {
             if (id != cauHoi.CauHoiID)
             {
-                return BadRequest();
+                return BadRequest("ID không khớp.");
+            }
+
+            // Logic nghiệp vụ: Kiểm tra khóa ngoại
+            if (!await _context.ChuDes.AnyAsync(c => c.ChuDeID == cauHoi.ChuDeID) ||
+                !await _context.DoKhos.AnyAsync(d => d.DoKhoID == cauHoi.DoKhoID))
+            {
+                return BadRequest("ChuDeID hoặc DoKhoID không hợp lệ.");
             }
 
             _context.Entry(cauHoi).State = EntityState.Modified;
@@ -114,19 +93,13 @@ namespace QUIZ_GAME_WEB.Controllers.Admin
                 {
                     return NotFound();
                 }
-                else
-                {
-                    throw;
-                }
+                throw;
             }
 
-            return NoContent(); // 204 No Content - Cập nhật thành công
+            return NoContent();
         }
 
-        /// <summary>
-        /// (Admin) Xóa một câu hỏi.
-        /// </summary>
-        // DELETE: api/QLCauHoi/5
+        // DELETE: api/admin/QLCauHoi/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCauHoi(int id)
         {
@@ -136,10 +109,17 @@ namespace QUIZ_GAME_WEB.Controllers.Admin
                 return NotFound();
             }
 
+            // Logic nghiệp vụ: Ngăn xóa nếu câu hỏi đang được tham chiếu
+            if (await _context.CauSais.AnyAsync(cs => cs.CauHoiID == id) ||
+                await _context.QuizNgays.AnyAsync(qn => qn.CauHoiID == id))
+            {
+                return Conflict("Không thể xóa. Câu hỏi này đang được sử dụng trong dữ liệu kết quả hoặc quiz hàng ngày.");
+            }
+
             _context.CauHois.Remove(cauHoi);
             await _context.SaveChangesAsync();
 
-            return NoContent(); // 204 No Content - Xóa thành công
+            return NoContent();
         }
     }
 }

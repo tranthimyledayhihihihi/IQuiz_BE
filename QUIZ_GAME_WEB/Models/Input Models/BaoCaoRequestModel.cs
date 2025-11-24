@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace QUIZ_GAME_WEB.Models
+namespace QUIZ_GAME_WEB.Models.InputModels
 {
     // Model để nhận yêu cầu tạo báo cáo
     public class BaoCaoRequestModel

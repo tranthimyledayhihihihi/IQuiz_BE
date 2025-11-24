@@ -1,15 +1,11 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using QUIZ_GAME_WEB.Data;
-using System.Threading.Tasks;
+using QUIZ_GAME_WEB.Data; // <== SỬA TẠI ĐÂY
+using QUIZ_GAME_WEB.Models.QuizModels; // DoKho, TroGiup
 
-// Namespace phải khớp với thư mục 'Admin'
-namespace QUIZ_GAME_WEB.Controllers.Admin
+namespace QUIZ_GAME_WEB.Controllers
 {
-    [Authorize(Roles = "Admin")]
-    // [Authorize]
-    [Route("api/[controller]")]
+    [Route("api/admin/[controller]")]
     [ApiController]
     public class HeThongController : ControllerBase
     {
@@ -20,73 +16,59 @@ namespace QUIZ_GAME_WEB.Controllers.Admin
             _context = context;
         }
 
-        /// <summary>
-        /// (Admin) Lấy cài đặt hệ thống hiện tại (Mô phỏng).
-        /// </summary>
-        /// <remarks>
-        /// Trong dự án thật, bạn sẽ đọc các cài đặt này từ
-        /// một bảng 'CaiDatHeThong' trong DB hoặc từ appsettings.json.
-        /// </remarks>
-        // GET: api/hethong/settings
-        [HttpGet("settings")]
-        public IActionResult GetSystemSettings()
+        // ===============================================
+        // A. QUẢN LÝ ĐỘ KHÓ (DoKho)
+        // ===============================================
+
+        // GET: api/admin/HeThong/DoKho
+        [HttpGet("DoKho")]
+        public async Task<ActionResult<IEnumerable<DoKho>>> GetDoKhos()
         {
-            // Đây là dữ liệu mô phỏng (mock)
-            var settings = new
-            {
-                ChoPhepDangKyMoi = true,
-                CheDoBaoTri = false,
-                PhienBanApi = "1.0.0"
-            };
-            return Ok(settings);
+            return await _context.DoKhos.ToListAsync();
         }
 
-        /// <summary>
-        /// (Admin) Cập nhật cài đặt hệ thống (Mô phỏng).
-        /// </summary>
-        // POST: api/hethong/settings
-        [HttpPost("settings")]
-        public IActionResult UpdateSystemSettings([FromBody] object settings)
+        // PUT: api/admin/HeThong/DoKho/{id}
+        [HttpPut("DoKho/{id}")]
+        public async Task<IActionResult> PutDoKho(int id, DoKho doKhoUpdate)
         {
-            // Logic mô phỏng:
-            // 1. Nhận 'settings'
-            // 2. Lưu vào database hoặc appsettings.json
+            if (id != doKhoUpdate.DoKhoID)
+            {
+                return BadRequest();
+            }
 
-            // Trả về thành công
-            return Ok(new { message = "Cài đặt hệ thống đã được cập nhật (mô phỏng)." });
+            var doKho = await _context.DoKhos.FindAsync(id);
+            if (doKho == null)
+            {
+                return NotFound();
+            }
+
+            // Logic nghiệp vụ: Chỉ cho phép cập nhật Điểm Thưởng
+            doKho.DiemThuong = doKhoUpdate.DiemThuong;
+
+            _context.Entry(doKho).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+
+            return NoContent();
         }
 
+        // ===============================================
+        // B. QUẢN LÝ TRỢ GIÚP (TroGiup)
+        // ===============================================
 
-        /// <summary>
-        /// (Admin) Kích hoạt một tác vụ sao lưu database (Mô phỏng).
-        /// </summary>
-        /// <remarks>
-        /// API này chỉ mô phỏng việc sao lưu.
-        /// Backup thật sự cần chạy lệnh SQL 'BACKUP DATABASE ...'
-        /// </remarks>
-        // POST: api/hethong/backup
-        [HttpPost("backup")]
-        public async Task<IActionResult> BackupDatabase()
+        // GET: api/admin/HeThong/TroGiup
+        [HttpGet("TroGiup")]
+        public async Task<ActionResult<IEnumerable<TroGiup>>> GetTroGiups()
         {
-            try
-            {
-                // -- LOGIC MÔ PHỎNG --
-                // (Chờ 2 giây để giả vờ đang backup)
-                await Task.Delay(2000);
+            return await _context.TroGiups.ToListAsync();
+        }
 
-                // -- LOGIC THẬT SỰ (Ví dụ) --
-                // string dbName = "quiz_game";
-                // string backupPath = $"D:\\Backups\\quiz_game_{DateTime.Now:yyyyMMdd_HHmmss}.bak";
-                // string sqlCommand = $"BACKUP DATABASE [{dbName}] TO DISK = '{backupPath}'";
-                // await _context.Database.ExecuteSqlRawAsync(sqlCommand);
-                // -------------------------
-
-                return Ok(new { message = "Sao lưu database thành công (mô phỏng)." });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "Lỗi khi sao lưu database.", error = ex.Message });
-            }
+        // POST: api/admin/HeThong/TroGiup
+        [HttpPost("TroGiup")]
+        public async Task<ActionResult<TroGiup>> PostTroGiup(TroGiup troGiup)
+        {
+            _context.TroGiups.Add(troGiup);
+            await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(GetTroGiups), new { id = troGiup.TroGiupID }, troGiup);
         }
     }
 }

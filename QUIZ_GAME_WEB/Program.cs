@@ -1,9 +1,13 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿// ------------------------------------------------------------------
+// FILE: Program.cs (ĐÃ SỬA LỖI GỌI SeedData.Initialize)
+// ------------------------------------------------------------------
+using Microsoft.EntityFrameworkCore;
 using QUIZ_GAME_WEB.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using Microsoft.OpenApi.Models; // <-- Thêm dòng này
+using Microsoft.OpenApi.Models;
+using System.Reflection; // Cần cho ILogger
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,6 +44,7 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         ValidIssuer = builder.Configuration["Jwt:Issuer"],
         ValidAudience = builder.Configuration["Jwt:Audience"],
+        // ! được dùng để đảm bảo giá trị không null khi sử dụng tính năng nullability
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
     };
 });
@@ -47,18 +52,17 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// === 4. THAY THẾ 'AddSwaggerGen()' BẰNG KHỐI NÀY ===
+// === 4. CẤU HÌNH SWAGGER GEN ===
 builder.Services.AddSwaggerGen(options =>
 {
-    // Thêm mô tả cho Swagger
     options.SwaggerDoc("v1", new OpenApiInfo { Title = "QUIZ_GAME_WEB API", Version = "v1" });
 
     // 1. Định nghĩa Security Scheme (JWT Bearer)
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
-        Type = SecuritySchemeType.Http, // Dùng Http
-        Scheme = "Bearer", // Ghi rõ là "Bearer"
+        Type = SecuritySchemeType.Http,
+        Scheme = "Bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
         Description = "Nhập 'Bearer' [dấu cách] và dán token của bạn vào đây.\n\nVí dụ: \"Bearer eyJhbGciOi...\""
@@ -80,28 +84,35 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
 });
-// ============================================
 
 var app = builder.Build();
 
-// === 5. GỌI SEEDDATA SAU KHI BUILD ===
+// === 5. GỌI SEEDDATA SAU KHI BUILD (ĐÃ SỬA LỖI) ===
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     try
     {
+        // 📢 KHẮC PHỤC LỖI: Gọi phương thức Initialize mới thêm vào lớp SeedData
         SeedData.Initialize(services);
+
     }
     catch (Exception ex)
     {
+        // Thêm ILogger để log lỗi (cần using System.Reflection; hoặc Microsoft.Extensions.Logging)
         var logger = services.GetRequiredService<ILogger<Program>>();
         logger.LogError(ex, "Một lỗi đã xảy ra khi seed database.");
     }
 }
 
 // === 6. CẤU HÌNH HTTP PIPELINE ===
-app.UseSwagger();
-app.UseSwaggerUI();
+// Ghi chú: app.UseRouting() thường được gọi trước UseCors nếu Cors là middleware
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
 app.UseHttpsRedirection();
 app.UseRouting();
 app.UseCors(MyAllowSpecificOrigins);

@@ -1,8 +1,9 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using QUIZ_GAME_WEB.Models.CoreEntities;
 
-namespace QUIZ_GAME_WEB.Models
+namespace QUIZ_GAME_WEB.Models.QuizModels
 {
     public class QuizChiaSe
     {

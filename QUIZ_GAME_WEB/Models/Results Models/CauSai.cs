@@ -1,8 +1,10 @@
 ﻿using System;
+using QUIZ_GAME_WEB.Models.CoreEntities;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using QUIZ_GAME_WEB.Models.QuizModels;
 
-namespace QUIZ_GAME_WEB.Models
+namespace QUIZ_GAME_WEB.Models.ResultsModels
 {
     public class CauSai
     {

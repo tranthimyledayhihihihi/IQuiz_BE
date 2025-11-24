@@ -1,8 +1,9 @@
 ﻿using System;
+using QUIZ_GAME_WEB.Models.CoreEntities;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace QUIZ_GAME_WEB.Models
+namespace QUIZ_GAME_WEB.Models.ResultsModels
 {
     public class KetQua
     {
