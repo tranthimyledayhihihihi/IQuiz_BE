@@ -29,6 +29,20 @@ namespace QUIZ_GAME_WEB.Models.Interfaces
         Task<(IEnumerable<CauHoiInfoDto> Questions, int TotalCount)> GetIncorrectQuestionsByUserIdAsync(
             int userId, int pageNumber, int pageSize);
         Task<int> CountActiveQuestionsAsync();
+        Task<IQueryable<CauHoi>> GetPendingQuestionsAsync();
+        Task<bool> ApproveQuestionAsync(int cauHoiId, int adminId);
+
+        // ✅ BỔ SUNG: Cho phép truy cập Repository của các Entity liên quan
+
+        /// <summary>
+        /// Trả về Generic Repository để quản lý các Entity ChuDe (Topic).
+        /// </summary>
+        IGenericRepository<ChuDe> GetTopicRepository();
+
+        /// <summary>
+        /// Trả về Generic Repository để quản lý các Entity DoKho (Difficulty).
+        /// </summary>
+        IGenericRepository<DoKho> GetDifficultyRepository();
 
         // ===============================================
         // IV. ✅ CÁC HÀM QUẢN LÝ QUIZ TÙY CHỈNH (UGC)
@@ -46,7 +60,7 @@ namespace QUIZ_GAME_WEB.Models.Interfaces
         // ===============================================
         // II. ✅ CÁC HÀM TRUY VẤN LỊCH SỬ CHIA SẺ
         // ===============================================
-
+        Task<CauHoiInfoDto?> GetQuestionDetailByIdAsync(int cauHoiId);
         /// <summary>
         /// Lấy danh sách các Quiz mà người dùng đã gửi đi.
         /// </summary>

@@ -5,6 +5,7 @@ using QUIZ_GAME_WEB.Models.QuizModels;
 using QUIZ_GAME_WEB.Models.ResultsModels;
 using QUIZ_GAME_WEB.Models.ViewModels;
 using QUIZ_GAME_WEB.Models.InputModels;
+using QUIZ_GAME_WEB.Models.CoreEntities;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
@@ -12,12 +13,22 @@ using System;
 
 namespace QUIZ_GAME_WEB.Models.Implementations
 {
-    // Kế thừa GenericRepository và thực thi IQuizRepository
     public class QuizRepository : GenericRepository<CauHoi>, IQuizRepository
     {
-        // Constructor gọi base(context) để nhận DbContext
-        // Giả định _context được truy cập từ lớp cơ sở (GenericRepository)
-        public QuizRepository(QuizGameContext context) : base(context) { }
+        // Khắc phục lỗi "hiding inherited member"
+        private new readonly QuizGameContext _context; 
+        
+        // Khởi tạo các Generic Repository để trả về từ IQuizRepository
+        private readonly IGenericRepository<ChuDe> _topicRepository;
+        private readonly IGenericRepository<DoKho> _difficultyRepository;
+
+        public QuizRepository(QuizGameContext context) : base(context) 
+        { 
+            _context = context; 
+            // Khởi tạo các Generic Repository cho các Entity liên quan
+            _topicRepository = new GenericRepository<ChuDe>(context);
+            _difficultyRepository = new GenericRepository<DoKho>(context);
+        }
 
         // ===============================================
         // I. CÁC HÀM TRUY VẤN CƠ BẢN & CHUYÊN BIỆT
@@ -28,6 +39,8 @@ namespace QUIZ_GAME_WEB.Models.Implementations
             var query = _context.CauHois.AsQueryable();
             if (chuDeId.HasValue) query = query.Where(q => q.ChuDeID == chuDeId.Value);
             if (doKhoId.HasValue) query = query.Where(q => q.DoKhoID == doKhoId.Value);
+            query = query.Where(q => q.TrangThaiDuyet == "Approved"); // Chỉ lấy câu hỏi đã duyệt
+            
             query = query.Include(q => q.ChuDe).Include(q => q.DoKho);
             return await query.OrderBy(r => Guid.NewGuid()).Take(count).ToListAsync();
         }
@@ -38,6 +51,31 @@ namespace QUIZ_GAME_WEB.Models.Implementations
         }
 
         public async Task<IEnumerable<ChuDe>> GetAllTopicsAsync() => await _context.ChuDes.ToListAsync();
+        public async Task<IEnumerable<DoKho>> GetAllDifficultiesAsync() => await _context.DoKhos.ToListAsync();
+
+        public async Task<CauHoiInfoDto?> GetQuestionDetailByIdAsync(int cauHoiId)
+        {
+            return await _context.CauHois
+                .Where(q => q.CauHoiID == cauHoiId)
+                .Select(q => new CauHoiInfoDto
+                {
+                    CauHoiID = q.CauHoiID,
+                    NoiDung = q.NoiDung,
+                    DapAnA = q.DapAnA,
+                    DapAnB = q.DapAnB,
+                    DapAnC = q.DapAnC,
+                    DapAnD = q.DapAnD,
+                    HinhAnh = q.HinhAnh,
+                    ChuDeID = q.ChuDeID,
+                    TenChuDe = q.ChuDe!.TenChuDe,
+                    DoKhoID = q.DoKhoID,
+                    TenDoKho = q.DoKho!.TenDoKho,
+                    DiemThuong = q.DoKho.DiemThuong,
+                    TrangThaiDuyet = q.TrangThaiDuyet
+                })
+                .AsNoTracking()
+                .FirstOrDefaultAsync();
+        }
 
         // ===============================================
         // II. CÁC HÀM THAO TÁC (CRUD & Transaction Support)
@@ -46,11 +84,63 @@ namespace QUIZ_GAME_WEB.Models.Implementations
         public void AddTopic(ChuDe topic) => _context.ChuDes.Add(topic);
         public async Task AddQuizTuyChinhAsync(QuizTuyChinh quiz) => await _context.QuizTuyChinhs.AddAsync(quiz);
         public async Task AddQuizAttemptAsync(QuizAttempt attempt) => await _context.QuizAttempts.AddAsync(attempt);
-        public async Task SaveQuizAttemptAsync(QuizAttempt attempt) => _context.QuizAttempts.Update(attempt);
-        public async Task AddQuizChiaSeAsync(QuizChiaSe share) => await _context.QuizChiaSes.AddAsync(share); // ✅ Thao tác Share
+        
+        // Sửa: Hàm SaveQuizAttemptAsync trả về Task (async void không được dùng)
+        public Task SaveQuizAttemptAsync(QuizAttempt attempt) 
+        {
+            _context.QuizAttempts.Update(attempt);
+            return Task.CompletedTask; 
+        }
+        
+        public async Task AddQuizChiaSeAsync(QuizChiaSe share) => await _context.QuizChiaSes.AddAsync(share);
 
         // ===============================================
-        // III. CÁC HÀM TRUY VẤN TỐI ƯU HÓA CHO API
+        // III. HÀM MODERATION & REPOSITORY ACCESS (TRIỂN KHAI CÁC MEMBER CÒN THIẾU)
+        // ===============================================
+
+        // ✅ FIX LỖI THIẾU: GetPendingQuestionsAsync()
+        public async Task<IQueryable<CauHoi>> GetPendingQuestionsAsync()
+        {
+            return _context.CauHois
+                           .Where(q => q.TrangThaiDuyet == "Pending")
+                           .AsQueryable();
+        }
+
+        // ✅ FIX LỖI THIẾU: ApproveQuestionAsync(int, int)
+        public async Task<bool> ApproveQuestionAsync(int cauHoiId, int adminId)
+        {
+            var question = await _context.CauHois.FindAsync(cauHoiId);
+
+            if (question == null || question.TrangThaiDuyet != "Pending")
+            {
+                return false;
+            }
+
+            question.TrangThaiDuyet = "Approved";
+            question.AdminDuyetID = adminId;
+            question.NgayTao = DateTime.UtcNow;
+
+            _context.CauHois.Update(question);
+            return true;
+        }
+
+        // ✅ FIX LỖI THIẾU: GetTopicRepository()
+        public IGenericRepository<ChuDe> GetTopicRepository()
+        {
+            return _topicRepository;
+        }
+
+        // ✅ FIX LỖI THIẾU: GetDifficultyRepository()
+        public IGenericRepository<DoKho> GetDifficultyRepository()
+        {
+            return _difficultyRepository;
+        }
+        
+        public async Task<int> CountAllCauHoisAsync() => await _context.CauHois.CountAsync();
+        public async Task<int> CountActiveQuestionsAsync() => await _context.CauHois.Where(q => q.TrangThaiDuyet == "Approved").CountAsync();
+
+        // ===============================================
+        // IV. CÁC HÀM TRUY VẤN TỐI ƯU HÓA CHO API (Projection)
         // ===============================================
 
         public async Task<IEnumerable<CauHoiInfoDto>> GetRandomQuestionsWithDetailsAsync(
@@ -60,26 +150,27 @@ namespace QUIZ_GAME_WEB.Models.Implementations
 
             if (chuDeId.HasValue) query = query.Where(q => q.ChuDeID == chuDeId.Value);
             if (doKhoId.HasValue) query = query.Where(q => q.DoKhoID == doKhoId.Value);
+            query = query.Where(q => q.TrangThaiDuyet == "Approved");
 
             return await query
-                         .OrderBy(r => Guid.NewGuid())
-                         .Take(count)
-                         .Select(q => new CauHoiInfoDto
-                         {
-                             CauHoiID = q.CauHoiID,
-                             NoiDung = q.NoiDung,
-                             DapAnA = q.DapAnA,
-                             DapAnB = q.DapAnB,
-                             DapAnC = q.DapAnC,
-                             DapAnD = q.DapAnD,
-                             HinhAnh = q.HinhAnh,
-                             ChuDeID = q.ChuDeID,
-                             TenChuDe = q.ChuDe!.TenChuDe,
-                             DoKhoID = q.DoKhoID,
-                             TenDoKho = q.DoKho!.TenDoKho,
-                             DiemThuong = q.DoKho.DiemThuong
-                         })
-                         .ToListAsync();
+                          .OrderBy(r => Guid.NewGuid())
+                          .Take(count)
+                          .Select(q => new CauHoiInfoDto
+                          {
+                              CauHoiID = q.CauHoiID,
+                              NoiDung = q.NoiDung,
+                              DapAnA = q.DapAnA,
+                              DapAnB = q.DapAnB,
+                              DapAnC = q.DapAnC,
+                              DapAnD = q.DapAnD,
+                              HinhAnh = q.HinhAnh,
+                              ChuDeID = q.ChuDeID,
+                              TenChuDe = q.ChuDe!.TenChuDe,
+                              DoKhoID = q.DoKhoID,
+                              TenDoKho = q.DoKho!.TenDoKho,
+                              DiemThuong = q.DoKho.DiemThuong
+                          })
+                          .ToListAsync();
         }
 
         public async Task<(IEnumerable<CauHoiInfoDto> Questions, int TotalCount)> GetQuestionsFilteredAsync(
@@ -113,7 +204,8 @@ namespace QUIZ_GAME_WEB.Models.Implementations
                     TenChuDe = q.ChuDe!.TenChuDe,
                     DoKhoID = q.DoKhoID,
                     TenDoKho = q.DoKho!.TenDoKho,
-                    DiemThuong = q.DoKho.DiemThuong
+                    DiemThuong = q.DoKho.DiemThuong,
+                    TrangThaiDuyet = q.TrangThaiDuyet
                 })
                 .ToListAsync();
 
@@ -149,17 +241,14 @@ namespace QUIZ_GAME_WEB.Models.Implementations
 
             return (questions, totalCount);
         }
-
+        
         public async Task<IEnumerable<CauHoi>> GetAllCauHoisWithDetailsAsync()
         {
             return await _context.CauHois.Include(q => q.ChuDe).Include(q => q.DoKho).AsNoTracking().ToListAsync();
         }
 
-        public async Task<int> CountAllCauHoisAsync() => await _context.CauHois.CountAsync();
-        public async Task<int> CountActiveQuestionsAsync() => await _context.CauHois.CountAsync();
-
         // ===============================================
-        // IV. ✅ HÀM UGC (User-Generated Content) & SHARE
+        // V. HÀM UGC (User-Generated Content) & SHARE
         // ===============================================
 
         public async Task<(IEnumerable<QuizTuyChinhDto> Quizzes, int TotalCount)> GetQuizSubmissionsByUserIdAsync(
@@ -207,7 +296,7 @@ namespace QUIZ_GAME_WEB.Models.Implementations
             };
 
             await _context.QuizTuyChinhs.AddAsync(newQuiz);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(); // Lưu QuizTuyChinh để lấy ID
 
             var questionsToSubmit = submission.Questions.Select(qModel => new CauHoi
             {
@@ -221,6 +310,7 @@ namespace QUIZ_GAME_WEB.Models.Implementations
                 DapAnDung = qModel.DapAnDung,
                 HinhAnh = qModel.HinhAnh,
                 NgayTao = DateTime.Now,
+                TrangThaiDuyet = "Pending",
                 QuizTuyChinhID = newQuiz.QuizTuyChinhID // Gán FK
             }).ToList();
 
@@ -244,16 +334,13 @@ namespace QUIZ_GAME_WEB.Models.Implementations
             return true;
         }
 
-        // ===============================================
-        // V. HÀM SHARE (QuizChiaSeController)
-        // ===============================================
-
         public async Task<bool> CheckQuizOwnershipAndExistenceAsync(int quizId, int userId)
         {
             return await _context.QuizTuyChinhs
                 .AnyAsync(q => q.QuizTuyChinhID == quizId && q.UserID == userId);
         }
 
+        // Hàm chia sẻ: Đã sửa lỗi LINQ .First()
         public async Task<(IEnumerable<QuizShareDto> Shares, int TotalCount)> GetSharedQuizzesBySenderAsync(int userId)
         {
             var query = _context.QuizChiaSes
@@ -273,40 +360,14 @@ namespace QUIZ_GAME_WEB.Models.Implementations
                     NgayChiaSe = joined.s.NgayChiaSe,
                     UserGuiID = joined.s.UserGuiID,
                     UserNhanID = joined.s.UserNhanID ?? 0,
-                    TenNguoiGui = _context.NguoiDungs.First(u => u.UserID == joined.s.UserGuiID).HoTen,
-                    TenNguoiNhan = receiver.HoTen
+                    TenNguoiNhan = receiver.HoTen,
+                    TenNguoiGui = _context.NguoiDungs.Where(u => u.UserID == joined.s.UserGuiID).Select(u => u.HoTen).FirstOrDefault()
                 })
                 .ToListAsync();
 
             return (shares, totalCount);
         }
-        public async Task<QuizNgayDetailsDto?> GetTodayQuizDetailsAsync()
-        {
-            // Lấy QuizNgay dựa trên ngày hiện tại (DateTime.Today)
-            var todayQuiz = await _context.QuizNgays
-                .Where(qn => qn.Ngay.Date == DateTime.Today.Date)
-                .Include(qn => qn.CauHoi) // Giả định QuizNgay có Navigation Property CauHoi
-                    .ThenInclude(ch => ch!.DoKho) // Include Độ khó để lấy chi tiết
-                .AsNoTracking()
-                .FirstOrDefaultAsync();
-
-            if (todayQuiz == null)
-            {
-                return null;
-            }
-
-            // Ánh xạ sang DTO (Giả định QuizNgayDetailsDto chứa CauHoiID và nội dung chi tiết)
-            return new QuizNgayDetailsDto
-            {
-                QuizNgayID = todayQuiz.QuizNgayID,
-                Ngay = todayQuiz.Ngay,
-                CauHoiID = (int)todayQuiz.CauHoiID,
-                NoiDungCauHoi = todayQuiz.CauHoi!.NoiDung,
-                TenDoKho = todayQuiz.CauHoi.DoKho!.TenDoKho,
-                DiemThuong = todayQuiz.CauHoi.DoKho.DiemThuong
-                // Cần bổ sung các trường khác của câu hỏi (A, B, C, D) trong DTO này
-            };
-        }
+        
         public async Task<(IEnumerable<QuizShareDto> Shares, int TotalCount)> GetSharedQuizzesByReceiverAsync(int userId)
         {
             var query = _context.QuizChiaSes
@@ -327,13 +388,13 @@ namespace QUIZ_GAME_WEB.Models.Implementations
                     UserGuiID = joined.s.UserGuiID,
                     UserNhanID = joined.s.UserNhanID ?? 0,
                     TenNguoiGui = sender.HoTen,
-                    TenNguoiNhan = _context.NguoiDungs.First(u => u.UserID == joined.s.UserNhanID).HoTen
+                    TenNguoiNhan = _context.NguoiDungs.Where(u => u.UserID == joined.s.UserNhanID).Select(u => u.HoTen).FirstOrDefault()
                 })
                 .ToListAsync();
 
             return (shares, totalCount);
         }
-
+        
         public async Task<QuizShareDetailDto?> GetShareDetailByIdAsync(int shareId)
         {
             var shareDetail = await _context.QuizChiaSes
@@ -362,9 +423,30 @@ namespace QUIZ_GAME_WEB.Models.Implementations
             return shareDetail;
         }
 
-        // ===============================================
-        // VI. HÀM TRUY VẤN KHÁC (Giữ lại)
-        // ===============================================
-        public async Task<IEnumerable<DoKho>> GetAllDifficultiesAsync() => await _context.DoKhos.ToListAsync();
+        public async Task<QuizNgayDetailsDto?> GetTodayQuizDetailsAsync()
+        {
+            var todayQuiz = await _context.QuizNgays
+                .Where(qn => qn.Ngay.Date == DateTime.Today.Date)
+                .Include(qn => qn.CauHoi) 
+                    .ThenInclude(ch => ch!.DoKho) 
+                .AsNoTracking()
+                .FirstOrDefaultAsync();
+
+            if (todayQuiz == null || todayQuiz.CauHoi == null || todayQuiz.CauHoi.DoKho == null)
+            {
+                return null;
+            }
+
+            return new QuizNgayDetailsDto
+            {
+                QuizNgayID = todayQuiz.QuizNgayID,
+                Ngay = todayQuiz.Ngay,
+                CauHoiID = (int)todayQuiz.CauHoiID, // Assuming CauHoiID is int? in QuizNgay
+                NoiDungCauHoi = todayQuiz.CauHoi.NoiDung,
+                TenDoKho = todayQuiz.CauHoi.DoKho.TenDoKho,
+                DiemThuong = todayQuiz.CauHoi.DoKho.DiemThuong
+                // Bổ sung các trường DapAnA, B, C, D nếu DTO QuizNgayDetailsDto yêu cầu
+            };
+        }
     }
 }

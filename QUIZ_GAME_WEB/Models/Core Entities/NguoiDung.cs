@@ -58,22 +58,51 @@ namespace QUIZ_GAME_WEB.Models.CoreEntities
         // Navigation Properties (Điều hướng khác)
         // ===============================================
 
+        // ===============================================
+        // Navigation Properties (Điều hướng khác)
+        // ===============================================
+
+        // Những navigation dưới đây TẤT CẢ đều phải JsonIgnore,
+        // vì đều là quan hệ vòng ngược liên quan đến Quiz, CauHoi, User.
+
+        [JsonIgnore]
         public virtual ICollection<QuizAttempt> QuizAttempts { get; set; } = new List<QuizAttempt>();
 
-        public virtual Admin? Admin { get; set; } // 1:1
-        public virtual CaiDatNguoiDung? CaiDat { get; set; } // 1:1
+        [JsonIgnore]
+        public virtual Admin? Admin { get; set; }
 
-        [JsonIgnore] // Ngăn chặn JSON cycle nếu trả về Profile
+        [JsonIgnore]
+        public virtual CaiDatNguoiDung? CaiDat { get; set; }
+
+        [JsonIgnore]
         public virtual ICollection<PhienDangNhap> PhienDangNhaps { get; set; } = new List<PhienDangNhap>();
 
+        [JsonIgnore]
         public virtual ICollection<KetQua> KetQuas { get; set; } = new List<KetQua>();
+
+        [JsonIgnore]
         public virtual ICollection<ChuoiNgay> ChuoiNgays { get; set; } = new List<ChuoiNgay>();
+
+        [JsonIgnore]
         public virtual ICollection<BXH> BXHs { get; set; } = new List<BXH>();
+
+        [JsonIgnore]
         public virtual ICollection<NguoiDungOnline> NguoiDungOnlines { get; set; } = new List<NguoiDungOnline>();
+
+        [JsonIgnore]
         public virtual ICollection<QuizTuyChinh> QuizTuyChinhs { get; set; } = new List<QuizTuyChinh>();
+
+        [JsonIgnore]
         public virtual ICollection<CauSai> CauSais { get; set; } = new List<CauSai>();
+
+        [JsonIgnore]
         public virtual ICollection<QuizChiaSe> QuizChiaSesGui { get; set; } = new List<QuizChiaSe>();
+
+        [JsonIgnore]
         public virtual ICollection<QuizChiaSe> QuizChiaSesNhan { get; set; } = new List<QuizChiaSe>();
+
+        [JsonIgnore]
         public virtual ICollection<Comment> Comments { get; set; } = new List<Comment>();
+
     }
 }

@@ -1,125 +1,221 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using QUIZ_GAME_WEB.Data; // <== SỬA TẠI ĐÂY
-using QUIZ_GAME_WEB.Models.QuizModels; // CauHoi, ChuDe, DoKho
+using Microsoft.AspNetCore.Authorization;
+using QUIZ_GAME_WEB.Models.Interfaces;
+using QUIZ_GAME_WEB.Models.QuizModels;
+using QUIZ_GAME_WEB.Models.ViewModels;
+using System.Security.Claims;
 
-namespace QUIZ_GAME_WEB.Controllers
+[Route("api/admin/[controller]")]
+[ApiController]
+[Authorize(AuthenticationSchemes = "Bearer", Roles = "SuperAdmin, Moderator")]
+public class QLCauHoiController : ControllerBase
 {
-    [Route("api/admin/[controller]")]
-    [ApiController]
-    public class QLCauHoiController : ControllerBase
+    private readonly IUnitOfWork _unitOfWork;
+
+    public QLCauHoiController(IUnitOfWork unitOfWork)
     {
-        private readonly QuizGameContext _context;
+        _unitOfWork = unitOfWork;
+    }
 
-        public QLCauHoiController(QuizGameContext context)
+    private int LayIdAdminHienTai()
+    {
+        var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        if (int.TryParse(idClaim?.Value, out int userId)) return userId;
+        throw new UnauthorizedAccessException("Không lấy được ID người dùng.");
+    }
+
+    // =============================================================
+    // 1. LẤY DANH SÁCH CÂU HỎI (PHÂN TRANG + LỌC + TRẢ VỀ DTO)
+    // =============================================================
+    [HttpGet]
+    public async Task<IActionResult> GetQuestions(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? status = null)
+    {
+        Console.WriteLine($"=== ENDPOINT: GetQuestions (page={page}, pageSize={pageSize}, status={status}) ===");
+
+        var (questions, totalCount) = await _unitOfWork.Quiz.GetQuestionsFilteredAsync(
+            page, pageSize, null, null, null
+        );
+
+        // ✅ Filter trên DTO (Repository đã trả về DTO rồi)
+        if (!string.IsNullOrWhiteSpace(status))
+            questions = questions.Where(q => q.TrangThaiDuyet == status);
+
+        Console.WriteLine($"Returning {questions.Count()} questions, Type: {questions.FirstOrDefault()?.GetType().Name}");
+
+        return Ok(new
         {
-            _context = context;
-        }
+            total = totalCount,
+            page,
+            pageSize,
+            data = questions  // ✅ Trả về DTO trực tiếp
+        });
+    }
 
-        // GET: api/admin/QLCauHoi 
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<CauHoi>>> GetCauHois()
+    // =============================================================
+    // 2. LẤY CHI TIẾT CÂU HỎI (DTO)
+    // =============================================================
+    [HttpGet("{id:int}")]
+    public async Task<IActionResult> GetCauHoi(int id)
+    {
+        Console.WriteLine($"=== ENDPOINT: GetCauHoi (id={id}) ===");
+
+        var cauHoi = await _unitOfWork.Quiz.GetByIdAsync(id);
+        if (cauHoi == null)
+            return NotFound(new { message = "Không tìm thấy câu hỏi." });
+
+        Console.WriteLine($"Entity type: {cauHoi.GetType().Name}");
+        Console.WriteLine($"Has ChuDe? {cauHoi.ChuDe != null}");
+        Console.WriteLine($"Has DoKho? {cauHoi.DoKho != null}");
+
+        var dto = new CauHoiInfoDto
         {
-            return await _context.CauHois
-                .Include(ch => ch.ChuDe)
-                .Include(ch => ch.DoKho)
-                .ToListAsync();
-        }
+            CauHoiID = cauHoi.CauHoiID,
+            NoiDung = cauHoi.NoiDung,
+            DapAnA = cauHoi.DapAnA,
+            DapAnB = cauHoi.DapAnB,
+            DapAnC = cauHoi.DapAnC,
+            DapAnD = cauHoi.DapAnD,
+            HinhAnh = cauHoi.HinhAnh,
+            ChuDeID = cauHoi.ChuDeID,
+            DoKhoID = cauHoi.DoKhoID,
+            TrangThaiDuyet = cauHoi.TrangThaiDuyet,
+            TenChuDe = string.Empty,
+            TenDoKho = string.Empty,
+            DiemThuong = 0
+        };
 
-        // GET: api/admin/QLCauHoi/{id}
-        [HttpGet("{id}")]
-        public async Task<ActionResult<CauHoi>> GetCauHoi(int id)
+        Console.WriteLine("Returning DTO");
+        return Ok(dto);
+    }
+
+    // =============================================================
+    // 3. TẠO CÂU HỎI MỚI
+    // =============================================================
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] CauHoi model)
+    {
+        Console.WriteLine("=== ENDPOINT: Create ===");
+
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        model.TrangThaiDuyet = "Approved"; // Admin tạo = tự duyệt
+        model.NgayTao = DateTime.UtcNow;
+
+        _unitOfWork.Quiz.Add(model);
+        await _unitOfWork.CompleteAsync();
+
+        Console.WriteLine($"Created question ID: {model.CauHoiID}");
+
+        return CreatedAtAction(nameof(GetCauHoi), new { id = model.CauHoiID }, new
         {
-            var cauHoi = await _context.CauHois
-                .Include(ch => ch.ChuDe)
-                .Include(ch => ch.DoKho)
-                .FirstOrDefaultAsync(ch => ch.CauHoiID == id);
+            model.CauHoiID,
+            model.NoiDung,
+            model.ChuDeID,
+            model.DoKhoID
+        });
+    }
 
-            if (cauHoi == null)
-            {
-                return NotFound();
-            }
-            return cauHoi;
-        }
+    // =============================================================
+    // 4. CẬP NHẬT CÂU HỎI
+    // =============================================================
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> Update(int id, [FromBody] CauHoi updated)
+    {
+        Console.WriteLine($"=== ENDPOINT: Update (id={id}) ===");
 
-        // POST: api/admin/QLCauHoi
-        [HttpPost]
-        public async Task<ActionResult<CauHoi>> PostCauHoi(CauHoi cauHoi)
-        {
-            // Logic nghiệp vụ: Kiểm tra ChuDeID và DoKhoID có hợp lệ không
-            if (!await _context.ChuDes.AnyAsync(c => c.ChuDeID == cauHoi.ChuDeID) ||
-                !await _context.DoKhos.AnyAsync(d => d.DoKhoID == cauHoi.DoKhoID))
-            {
-                return BadRequest("ChuDeID hoặc DoKhoID không hợp lệ.");
-            }
+        if (id != updated.CauHoiID)
+            return BadRequest(new { message = "ID không khớp." });
 
-            _context.CauHois.Add(cauHoi);
-            await _context.SaveChangesAsync();
+        var existing = await _unitOfWork.Quiz.GetByIdAsync(id);
+        if (existing == null)
+            return NotFound(new { message = "Không tìm thấy câu hỏi." });
 
-            // Lấy lại đối tượng đầy đủ để trả về client
-            var createdCauHoi = await _context.CauHois
-                .Include(ch => ch.ChuDe)
-                .Include(ch => ch.DoKho)
-                .FirstOrDefaultAsync(ch => ch.CauHoiID == cauHoi.CauHoiID);
+        existing.NoiDung = updated.NoiDung;
+        existing.DapAnA = updated.DapAnA;
+        existing.DapAnB = updated.DapAnB;
+        existing.DapAnC = updated.DapAnC;
+        existing.DapAnD = updated.DapAnD;
+        existing.DapAnDung = updated.DapAnDung;
+        existing.ChuDeID = updated.ChuDeID;
+        existing.DoKhoID = updated.DoKhoID;
+        existing.HinhAnh = updated.HinhAnh;
 
-            return CreatedAtAction(nameof(GetCauHoi), new { id = cauHoi.CauHoiID }, createdCauHoi);
-        }
+        _unitOfWork.Quiz.Update(existing);
+        await _unitOfWork.CompleteAsync();
 
-        // PUT: api/admin/QLCauHoi/{id}
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutCauHoi(int id, CauHoi cauHoi)
-        {
-            if (id != cauHoi.CauHoiID)
-            {
-                return BadRequest("ID không khớp.");
-            }
+        Console.WriteLine("Update completed");
+        return NoContent();
+    }
 
-            // Logic nghiệp vụ: Kiểm tra khóa ngoại
-            if (!await _context.ChuDes.AnyAsync(c => c.ChuDeID == cauHoi.ChuDeID) ||
-                !await _context.DoKhos.AnyAsync(d => d.DoKhoID == cauHoi.DoKhoID))
-            {
-                return BadRequest("ChuDeID hoặc DoKhoID không hợp lệ.");
-            }
+    // =============================================================
+    // 5. PHÊ DUYỆT CÂU HỎI UGC
+    // =============================================================
+    [HttpPost("phe-duyet/{id:int}")]
+    public async Task<IActionResult> Approve(int id)
+    {
+        Console.WriteLine($"=== ENDPOINT: Approve (id={id}) ===");
 
-            _context.Entry(cauHoi).State = EntityState.Modified;
+        var adminId = LayIdAdminHienTai();
+        var cauHoi = await _unitOfWork.Quiz.GetByIdAsync(id);
 
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!_context.CauHois.Any(e => e.CauHoiID == id))
-                {
-                    return NotFound();
-                }
-                throw;
-            }
+        if (cauHoi == null)
+            return NotFound(new { message = "Không tìm thấy câu hỏi." });
 
-            return NoContent();
-        }
+        cauHoi.TrangThaiDuyet = "Approved";
+        cauHoi.AdminDuyetID = adminId;
 
-        // DELETE: api/admin/QLCauHoi/{id}
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteCauHoi(int id)
-        {
-            var cauHoi = await _context.CauHois.FindAsync(id);
-            if (cauHoi == null)
-            {
-                return NotFound();
-            }
+        _unitOfWork.Quiz.Update(cauHoi);
+        await _unitOfWork.CompleteAsync();
 
-            // Logic nghiệp vụ: Ngăn xóa nếu câu hỏi đang được tham chiếu
-            if (await _context.CauSais.AnyAsync(cs => cs.CauHoiID == id) ||
-                await _context.QuizNgays.AnyAsync(qn => qn.CauHoiID == id))
-            {
-                return Conflict("Không thể xóa. Câu hỏi này đang được sử dụng trong dữ liệu kết quả hoặc quiz hàng ngày.");
-            }
+        Console.WriteLine("Question approved");
+        return Ok(new { message = "Đã duyệt câu hỏi." });
+    }
 
-            _context.CauHois.Remove(cauHoi);
-            await _context.SaveChangesAsync();
+    // =============================================================
+    // 6. TỪ CHỐI CÂU HỎI UGC
+    // =============================================================
+    [HttpPost("tu-choi/{id:int}")]
+    public async Task<IActionResult> Reject(int id)
+    {
+        Console.WriteLine($"=== ENDPOINT: Reject (id={id}) ===");
 
-            return NoContent();
-        }
+        var adminId = LayIdAdminHienTai();
+        var cauHoi = await _unitOfWork.Quiz.GetByIdAsync(id);
+
+        if (cauHoi == null)
+            return NotFound(new { message = "Không tìm thấy câu hỏi." });
+
+        cauHoi.TrangThaiDuyet = "Rejected";
+        cauHoi.AdminDuyetID = adminId;
+
+        _unitOfWork.Quiz.Update(cauHoi);
+        await _unitOfWork.CompleteAsync();
+
+        Console.WriteLine("Question rejected");
+        return Ok(new { message = "Đã từ chối câu hỏi." });
+    }
+
+    // =============================================================
+    // 7. XÓA CÂU HỎI
+    // =============================================================
+    [HttpDelete("{id:int}")]
+    [Authorize(Roles = "SuperAdmin")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        Console.WriteLine($"=== ENDPOINT: Delete (id={id}) ===");
+
+        var cauHoi = await _unitOfWork.Quiz.GetByIdAsync(id);
+        if (cauHoi == null)
+            return NotFound();
+
+        _unitOfWork.Quiz.Delete(cauHoi);
+        await _unitOfWork.CompleteAsync();
+
+        Console.WriteLine("Question deleted");
+        return NoContent();
     }
 }

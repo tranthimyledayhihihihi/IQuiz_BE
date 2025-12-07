@@ -1,9 +1,10 @@
-﻿using System;
+﻿using QUIZ_GAME_WEB.Models.ResultsModels;
+using System;
 using System.Collections.Generic;
+using QUIZ_GAME_WEB.Models.CoreEntities;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using QUIZ_GAME_WEB.Models.ResultsModels;
-using System.Text.Json.Serialization; // ✅ Cần cho [JsonIgnore]
+using System.Text.Json.Serialization;
 
 namespace QUIZ_GAME_WEB.Models.QuizModels
 {
@@ -12,6 +13,7 @@ namespace QUIZ_GAME_WEB.Models.QuizModels
         [Key]
         public int CauHoiID { get; set; }
 
+        // ======================= KHÓA NGOẠI =======================
         [Required]
         [ForeignKey(nameof(ChuDe))]
         public int ChuDeID { get; set; }
@@ -20,25 +22,29 @@ namespace QUIZ_GAME_WEB.Models.QuizModels
         [ForeignKey(nameof(DoKho))]
         public int DoKhoID { get; set; }
 
-        [Required]
-        [MaxLength(500)]
+        [ForeignKey(nameof(QuizTuyChinh))]
+        public int? QuizTuyChinhID { get; set; }
+
+        [ForeignKey(nameof(AdminDuyet))]
+        public int? AdminDuyetID { get; set; }
+
+        // ======================= NỘI DUNG =======================
+        [Required, MaxLength(500)]
         public string NoiDung { get; set; } = null!;
 
-        [MaxLength(255)]
-        [Required]
+        [Required, MaxLength(255)]
         public string DapAnA { get; set; } = null!;
-        [MaxLength(255)]
-        [Required]
+
+        [Required, MaxLength(255)]
         public string DapAnB { get; set; } = null!;
-        [MaxLength(255)]
-        [Required]
+
+        [Required, MaxLength(255)]
         public string DapAnC { get; set; } = null!;
-        [MaxLength(255)]
-        [Required]
+
+        [Required, MaxLength(255)]
         public string DapAnD { get; set; } = null!;
 
-        [Required]
-        [MaxLength(10)]
+        [Required, MaxLength(10)]
         public string DapAnDung { get; set; } = null!;
 
         [MaxLength(255)]
@@ -46,31 +52,35 @@ namespace QUIZ_GAME_WEB.Models.QuizModels
 
         public DateTime NgayTao { get; set; } = DateTime.Now;
 
-        // ===============================================
-        // ✅ BỔ SUNG KHÓA NGOẠI CHO UGC (Quiz Tuy Chỉnh)
-        // ===============================================
+        [MaxLength(20)]
+        public string TrangThaiDuyet { get; set; } = "Pending";
 
-        /// <summary>
-        /// Khóa Ngoại đến QuizTuyChinh nếu câu hỏi này là một phần của đề xuất UGC.
-        /// Cho phép NULL vì câu hỏi cũng có thể là câu hỏi gốc.
-        /// </summary>
-        [ForeignKey(nameof(QuizTuyChinh))]
-        public int? QuizTuyChinhID { get; set; }
+        // ======================= NAVIGATION (IGNORE ĐỂ CHỐNG LOOP) =======================
 
-        // ===============================================
-        // Thuộc tính điều hướng (Navigation Properties)
-        // ===============================================
+        // CHỐT QUAN TRỌNG: tất cả navigation 1-n & n-1 phải JsonIgnore
+        // vì DTO đã handle việc lấy thông tin.
 
+        [JsonIgnore]
         public virtual ChuDe ChuDe { get; set; } = null!;
+
+        [JsonIgnore]
         public virtual DoKho DoKho { get; set; } = null!;
 
-        /// <summary>
-        /// Thuộc tính điều hướng đến QuizTuyChinh mà câu hỏi này thuộc về.
-        /// </summary>
-        [JsonIgnore] // Ngăn chặn vòng lặp JSON
-        public virtual QuizTuyChinh? QuizTuyChinh { get; set; } // 1:N với QuizTuyChinh
+        [JsonIgnore]
+        public virtual NguoiDung? AdminDuyet { get; set; }
 
-        // Quan hệ 1:N với CauSai (Log lỗi)
+        [JsonIgnore]
+        public virtual QuizTuyChinh? QuizTuyChinh { get; set; }
+
+        [JsonIgnore]
         public virtual ICollection<CauSai> CauSais { get; set; } = new HashSet<CauSai>();
+
+        [JsonIgnore]
+        public virtual ICollection<TranDauCauHoi> TranDauCauHois { get; set; } = new HashSet<TranDauCauHoi>();
+
+        // ======================= NOT MAPPED =======================
+
+        [NotMapped]
+        public string? CacLuaChon { get; set; }
     }
 }

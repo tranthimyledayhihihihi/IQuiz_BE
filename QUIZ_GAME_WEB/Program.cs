@@ -6,59 +6,79 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.OpenApi.Models;
-using Microsoft.Extensions.Logging;
+using QUIZ_GAME_WEB.Hubs;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// === CORS ===
+// ===============================================
+// 1. CONTROLLERS + JSON CONFIG (CHỈ DÙNG 1 LẦN)
+// ===============================================
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.WriteIndented = true;
+    });
+
+// ===============================================
+// 2. CORS
+// ===============================================
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(name: MyAllowSpecificOrigins,
-        policy =>
+    options.AddPolicy(MyAllowSpecificOrigins, policy =>
+    {
+        var origins = new List<string>
         {
-            policy.AllowAnyOrigin()
-                  .AllowAnyHeader()
-                  .AllowAnyMethod();
-        });
+            "http://localhost:3000",
+            "http://localhost:4200"
+        };
+
+        var clientBaseUrl = builder.Configuration["Client:BaseUrl"];
+        if (!string.IsNullOrEmpty(clientBaseUrl))
+            origins.Add(clientBaseUrl);
+
+        policy.WithOrigins(origins.ToArray())
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
 });
 
-// === DbContext ===
+// ===============================================
+// 3. DATABASE
+// ===============================================
 builder.Services.AddDbContext<QuizGameContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// === JWT Authentication ===
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
+// ===============================================
+// 4. JWT AUTHENTICATION
+// ===============================================
+var jwtKey = builder.Configuration["Jwt:Key"]!;
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
     {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidAudience = builder.Configuration["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
-    };
-});
-// In Program.cs (or Startup.cs/ConfigureServices)
-// Trong Program.cs, tìm builder.Services.Add...
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        };
+    });
 
-// Đăng ký cho các Service khác (ví dụ):
-// builder.Services.AddScoped<IQuizAttemptService, QuizAttemptService>();
+// ===============================================
+// 5. SIGNALR
+// ===============================================
+builder.Services.AddSignalR();
 
-// ✅ THÊM DÒNG NÀY ĐỂ KHẮC PHỤC LỖI IProfileService
-builder.Services.AddScoped<QUIZ_GAME_WEB.Models.Interfaces.IProfileService, QUIZ_GAME_WEB.Models.Implementations.ProfileService>();
-// Registering the Reward Service implementation
-builder.Services.AddScoped<QUIZ_GAME_WEB.Models.Interfaces.IRewardService, QUIZ_GAME_WEB.Models.Implementations.RewardService>();
-builder.Services.AddScoped<QUIZ_GAME_WEB.Models.Interfaces.ISocialRepository, QUIZ_GAME_WEB.Models.Implementations.SocialRepository>();
-builder.Services.AddControllers();
+// ===============================================
+// 6. SWAGGER
+// ===============================================
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -70,7 +90,7 @@ builder.Services.AddSwaggerGen(options =>
         Scheme = "Bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Nhập 'Bearer ' và token của bạn"
+        Description = "Nhập 'Bearer {token}'"
     });
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
@@ -83,36 +103,33 @@ builder.Services.AddSwaggerGen(options =>
                     Id = "Bearer"
                 }
             },
-            new string[] {}
+            new string[] { }
         }
     });
 });
-// === Dependency Injection ===
-// Repositories
+
+// ===============================================
+// 7. DEPENDENCY INJECTION
+// ===============================================
 builder.Services.AddScoped<IQuizRepository, QuizRepository>();
 builder.Services.AddScoped<IResultRepository, ResultRepository>();
-
-// UnitOfWork
+builder.Services.AddScoped<ISocialRepository, SocialRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ITranDauRepository, TranDauRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-// Services
+builder.Services.AddScoped<IOnlineMatchService, OnlineMatchService>();
 builder.Services.AddScoped<IQuizAttemptService, QuizAttemptService>();
+builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddScoped<IRewardService, RewardService>();
 
-
-// === Dependency Injection ===
-// Repositories
-builder.Services.AddScoped<IQuizRepository, QuizRepository>();
-builder.Services.AddScoped<IResultRepository, ResultRepository>();
-
-// UnitOfWork
-builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-
-// Services
-builder.Services.AddScoped<IQuizAttemptService, QuizAttemptService>();
+builder.Services.AddSingleton<IMatchmakingQueueService, MatchmakingQueueService>();
 
 var app = builder.Build();
 
-// === Migration tự động khi chạy ===
+// ===============================================
+// 8. AUTO MIGRATION
+// ===============================================
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -128,7 +145,9 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// === HTTP Pipeline ===
+// ===============================================
+// 9. PIPELINE
+// ===============================================
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -136,11 +155,14 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
 app.UseRouting();
 app.UseCors(MyAllowSpecificOrigins);
 
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapHub<MatchmakingHub>("/matchmakinghub");
 app.MapControllers();
+
 app.Run();

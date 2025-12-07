@@ -54,7 +54,7 @@ namespace QUIZ_GAME_WEB.Models.Implementations
             {
                 return await _context.PhienDangNhaps
                     .Where(p => p.UserID == userId)
-                    .OrderByDescending(p => p.ThoiGianDangNhap)
+                    .OrderByDescending(p => p.ThoiGianBatDau)
                     .Take(limit)
                     .AsNoTracking() // Tăng performance cho read-only query
                     .ToListAsync();
@@ -75,7 +75,7 @@ namespace QUIZ_GAME_WEB.Models.Implementations
             {
                 return await _context.PhienDangNhaps
                     .Where(p => p.UserID == userId)
-                    .OrderByDescending(p => p.ThoiGianDangNhap)
+                    .OrderByDescending(p => p.ThoiGianBatDau)
                     .AsNoTracking()
                     .FirstOrDefaultAsync();
             }
@@ -117,7 +117,7 @@ namespace QUIZ_GAME_WEB.Models.Implementations
                 return await _context.PhienDangNhaps
                     .Where(p => p.UserID == userId
                         && p.TrangThai == true
-                        && p.ThoiGianHetHan > now)
+                        && p.ThoiGianKetThuc > now)
                     .AsNoTracking()
                     .ToListAsync();
             }
@@ -222,7 +222,7 @@ namespace QUIZ_GAME_WEB.Models.Implementations
 
                 // Tìm các phiên đã hết hạn
                 var expiredSessions = await _context.PhienDangNhaps
-                    .Where(p => p.ThoiGianHetHan < now)
+                    .Where(p => p.ThoiGianKetThuc < now)
                     .ToListAsync();
 
                 if (!expiredSessions.Any())
@@ -250,7 +250,7 @@ namespace QUIZ_GAME_WEB.Models.Implementations
             {
                 var now = DateTime.Now;
                 return await _context.PhienDangNhaps
-                    .CountAsync(p => p.TrangThai == true && p.ThoiGianHetHan > now);
+                    .CountAsync(p => p.TrangThai == true && p.ThoiGianKetThuc > now);
             }
             catch (Exception ex)
             {
@@ -271,8 +271,8 @@ namespace QUIZ_GAME_WEB.Models.Implementations
             try
             {
                 return await _context.PhienDangNhaps
-                    .Where(p => p.ThoiGianDangNhap >= startDate && p.ThoiGianDangNhap <= endDate)
-                    .OrderByDescending(p => p.ThoiGianDangNhap)
+                    .Where(p => p.ThoiGianBatDau >= startDate && p.ThoiGianBatDau <= endDate)
+                    .OrderByDescending(p => p.ThoiGianBatDau)
                     .AsNoTracking()
                     .ToListAsync();
             }
@@ -291,7 +291,7 @@ namespace QUIZ_GAME_WEB.Models.Implementations
             try
             {
                 return await _context.PhienDangNhaps
-                    .CountAsync(p => p.ThoiGianDangNhap >= startDate && p.ThoiGianDangNhap <= endDate);
+                    .CountAsync(p => p.ThoiGianBatDau >= startDate && p.ThoiGianBatDau <= endDate);
             }
             catch (Exception ex)
             {
@@ -314,8 +314,8 @@ namespace QUIZ_GAME_WEB.Models.Implementations
                 return false;
 
             return session.TrangThai == true
-                && session.ThoiGianHetHan.HasValue
-                && session.ThoiGianHetHan.Value > DateTime.Now;
+                && session.ThoiGianKetThuc.HasValue
+                && session.ThoiGianKetThuc.Value > DateTime.Now;
         }
     }
 }

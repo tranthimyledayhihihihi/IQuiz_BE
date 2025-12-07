@@ -30,7 +30,7 @@ namespace QUIZ_GAME_WEB.Models.Interfaces
 
         // ✅ BỔ SUNG: Lấy Hồ sơ Công khai (Dùng cho SocialController.GetPublicProfile)
         Task<UserProfileDto?> GetPublicProfileAsync(int targetUserId);
-
+        Task<bool> IsUserExistsAsync(int userId);
         // ----------------------------------------------------
         // CÁC HÀM LIÊN QUAN ĐẾN ROLE & ADMIN
         // ----------------------------------------------------

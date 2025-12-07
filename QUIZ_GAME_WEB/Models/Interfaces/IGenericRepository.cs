@@ -9,6 +9,8 @@ namespace QUIZ_GAME_WEB.Models.Interfaces
         Task<IEnumerable<T>> GetAllAsync();
         Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate);
         Task<int> CountAsync(Expression<Func<T, bool>>? predicate = null);
+        IQueryable<T> GetQueryable();
+
         void Add(T entity);
         void Update(T entity);
         void Delete(T entity);

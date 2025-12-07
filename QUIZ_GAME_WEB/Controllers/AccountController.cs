@@ -47,7 +47,10 @@ public class AccountController : ControllerBase
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
-        var user = await _context.NguoiDungs.FirstOrDefaultAsync(u => u.TenDangNhap == model.TenDangNhap);
+        // ✅ CẢI TIẾN: Include VaiTro để GetUserRoleFromDatabase không cần truy vấn lại
+        var user = await _context.NguoiDungs
+                                 .Include(u => u.VaiTro)
+                                 .FirstOrDefaultAsync(u => u.TenDangNhap == model.TenDangNhap);
 
         if (user == null || !user.TrangThai)
         {
@@ -59,17 +62,18 @@ public class AccountController : ControllerBase
             return Unauthorized(new { message = "Mật khẩu không đúng." });
         }
 
-        string userRole = await GetUserRoleFromDatabase(user.UserID);
+        // Lấy vai trò trực tiếp từ Navigation Property
+        string userRole = user.VaiTro?.TenVaiTro ?? "Player";
         string token = GenerateJwtToken(user, userRole);
 
         // ✅ BỔ SUNG: LƯU PHIÊN ĐĂNG NHẬP MỚI
         var newSession = new PhienDangNhap
         {
             UserID = user.UserID,
-            ThoiGianDangNhap = DateTime.Now,
+            ThoiGianBatDau = DateTime.Now,
             Token = token,
-            ThoiGianHetHan = DateTime.UtcNow.AddHours(2), // Giả định thời gian hết hạn
-            TrangThai = true // Đang hoạt động
+            ThoiGianKetThuc = DateTime.UtcNow.AddHours(2),
+            TrangThai = true
         };
         await _context.PhienDangNhaps.AddAsync(newSession);
 
@@ -97,10 +101,16 @@ public class AccountController : ControllerBase
             return Conflict(new { message = "Tên đăng nhập hoặc Email đã được sử dụng." });
         }
 
-        // Cần đảm bảo VaiTroID được gán trong Register (Giả định ID 3 là Player)
+        // 1. TÌM VaiTroID (Giả định ID 3 là Player)
         var playerRole = await _context.VaiTros.FirstOrDefaultAsync(r => r.TenVaiTro == "Player");
-        int vaiTroId = playerRole?.VaiTroID ?? 3;
 
+        // CẦN XỬ LÝ LỖI: Nếu bảng VaiTro trống (chưa chạy Seed Data)
+        if (playerRole == null)
+        {
+            return StatusCode(500, new { message = "Lỗi hệ thống: Không tìm thấy vai trò 'Player'. Vui lòng kiểm tra Seed Data." });
+        }
+
+        // 2. TẠO User mới và GÁN VaiTroID
         var newUser = new NguoiDung
         {
             TenDangNhap = model.TenDangNhap,
@@ -108,17 +118,46 @@ public class AccountController : ControllerBase
             Email = model.Email,
             HoTen = model.HoTen,
             NgayDangKy = DateTime.Now,
-            TrangThai = true
+            TrangThai = true,
+            // ✅ KHẮC PHỤC LỖI: GÁN VaiTroID BẮT BUỘC
+            VaiTroID = playerRole.VaiTroID
         };
 
+        // 3. TẠO CÀI ĐẶT mặc định (CaiDatNguoiDung)
+        var defaultSettings = new CaiDatNguoiDung
+        {
+            // Không cần gán UserID ở đây, EF Core sẽ tự gán sau khi lưu
+            AmThanh = true,
+            NhacNen = true,
+            ThongBao = true,
+            NgonNgu = "vi",
+            // Quan hệ 1:1 sẽ được thiết lập tự động
+        };
+        // Gán Navigation Property để thiết lập quan hệ 1:1
+        newUser.CaiDat = defaultSettings;
+
+
         await _context.NguoiDungs.AddAsync(newUser);
-        await _context.SaveChangesAsync();
+
+        // 4. LƯU THAY ĐỔI
+        // Hàm SaveChangesAsync sẽ thực hiện lệnh INSERT cho NguoiDung và CaiDatNguoiDung
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+        {
+            // Log ex.InnerException.Message để xem lỗi SQL chính xác
+            return StatusCode(500, new { message = "Lỗi khi lưu dữ liệu, có thể do cấu hình database: " + ex.InnerException?.Message });
+        }
+
 
         return StatusCode(201, new { message = "Đăng ký thành công." });
     }
 
     // ===============================================
     // 🔑 API 3: ĐỔI MẬT KHẨU (CHANGE PASSWORD)
+    // ... (Giữ nguyên)
     // ===============================================
     [HttpPost("change-password")]
     [Authorize(AuthenticationSchemes = "Bearer")]
@@ -153,6 +192,7 @@ public class AccountController : ControllerBase
 
     // ===============================================
     // 🔑 API 4: ĐĂNG XUẤT (LOGOUT)
+    // ... (Giữ nguyên)
     // ===============================================
     [HttpPost("logout")]
     [Authorize(AuthenticationSchemes = "Bearer")]
@@ -168,20 +208,17 @@ public class AccountController : ControllerBase
             return Ok(new { message = "Đăng xuất thành công." });
         }
 
-        // Lấy Token hiện tại từ Header
         string token = HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
 
-        // Tìm và vô hiệu hóa phiên đăng nhập đang hoạt động
         var activeSession = await _context.PhienDangNhaps
                                           .Where(s => s.UserID == userId && s.Token == token && s.TrangThai == true)
-                                          .OrderByDescending(s => s.ThoiGianDangNhap)
+                                          .OrderByDescending(s => s.ThoiGianBatDau)
                                           .FirstOrDefaultAsync();
 
         if (activeSession != null)
         {
-            // Đánh dấu là đã logout và thiết lập thời gian hết hạn là bây giờ
             activeSession.TrangThai = false;
-            activeSession.ThoiGianHetHan = DateTime.UtcNow;
+            activeSession.ThoiGianKetThuc = DateTime.UtcNow;
 
             _context.PhienDangNhaps.Update(activeSession);
             await _context.SaveChangesAsync();
@@ -196,20 +233,18 @@ public class AccountController : ControllerBase
 
     private string HashPassword(string password)
     {
-        // THỰC TẾ: Dùng BCrypt.Net.BCrypt.HashPassword(password)
         return $"hashed_{password}_password";
     }
 
     private bool VerifyPassword(string inputPassword, string hashedPassword)
     {
-        // THỰC TẾ: Dùng BCrypt.Net.BCrypt.Verify(inputPassword, hashedPassword)
         return hashedPassword == HashPassword(inputPassword);
     }
 
+    // ✅ CẢI TIẾN LOGIC: Lấy vai trò Admin từ bảng Admin
     private async Task<string> GetUserRoleFromDatabase(int userId)
     {
-        // Sử dụng truy vấn trực tiếp bảng Admin (giống như mã gốc bạn cung cấp)
-        // Đây là cách lấy Vai trò Admin/Moderator.
+        // Truy vấn bảng Admin để xem người dùng này có vai trò Admin/Moderator không
         var role = await (from a in _context.Admins
                           join r in _context.VaiTros on a.VaiTroID equals r.VaiTroID
                           where a.UserID == userId

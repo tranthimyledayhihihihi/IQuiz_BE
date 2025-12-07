@@ -43,10 +43,36 @@ namespace QUIZ_GAME_WEB.Data
         public DbSet<BXH> BXHs { get; set; } = null!;
         public DbSet<NguoiDungOnline> NguoiDungOnlines { get; set; } = null!;
         public DbSet<ClientKey> ClientKeys { get; set; } = null!;
-
+        public DbSet<TranDauTrucTiep> TranDauTrucTieps { get; set; } = null!;
+        public DbSet<TranDauCauHoi> TranDauCauHois { get; set; } = null!;
+        public DbSet<TraLoiTrucTiep> TraLoiTrucTieps { get; set; } = null!;
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            // Bổ sung: Thiết lập khóa chính phức hợp cho bảng nối TranDau_CauHoi
+            modelBuilder.Entity<TranDauCauHoi>()
+                .HasKey(tc => new { tc.TranDauID, tc.CauHoiID });
+            // Bạn cũng nên thiết lập mối quan hệ:
+            /*
+            modelBuilder.Entity<TranDauCauHoi>()
+                .HasOne(tc => tc.TranDau)
+                .WithMany(t => t.TranDauCauHois)
+                .HasForeignKey(tc => tc.TranDauID);
+
+            modelBuilder.Entity<TranDauCauHoi>()
+                .HasOne(tc => tc.CauHoi)
+                .WithMany(c => c.TranDauCauHois)
+                .HasForeignKey(tc => tc.CauHoiID);
+            */
+            // Bổ sung: Cấu hình khóa chính tự tăng cho DoKho
+            modelBuilder.Entity<DoKho>()
+                .HasKey(d => d.DoKhoID); // Đảm bảo khóa chính được xác định
+            modelBuilder.Entity<DoKho>()
+                .Property(d => d.DoKhoID)
+                .ValueGeneratedOnAdd();
             base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<TranDauTrucTiep>().ToTable("TranDauTrucTiep");
+            modelBuilder.Entity<TranDauCauHoi>().ToTable("TranDau_CauHoi");
+            modelBuilder.Entity<TraLoiTrucTiep>().ToTable("TraLoiTrucTiep");
 
             // === 1. Mapping table names (Giữ nguyên) ===
             modelBuilder.Entity<Admin>().ToTable("Admin");

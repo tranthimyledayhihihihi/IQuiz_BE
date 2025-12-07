@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using QUIZ_GAME_WEB.Models.CoreEntities;
 using QUIZ_GAME_WEB.Models.QuizModels;
+using System.Text.Json.Serialization;
 
 namespace QUIZ_GAME_WEB.Models.ResultsModels
 {
@@ -23,12 +24,16 @@ namespace QUIZ_GAME_WEB.Models.ResultsModels
         public DateTime NgaySai { get; set; } = DateTime.Now;
 
         [ForeignKey("UserID")]
+        [JsonIgnore]
         public virtual NguoiDung NguoiDung { get; set; } = null!;
 
         [ForeignKey("CauHoiID")]
+        [JsonIgnore]
         public virtual CauHoi CauHoi { get; set; } = null!;
 
         [ForeignKey("QuizAttemptID")]
+        [JsonIgnore]
         public virtual QuizAttempt QuizAttempt { get; set; } = null!;
+
     }
 }

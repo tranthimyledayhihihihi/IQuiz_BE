@@ -16,6 +16,7 @@
         public string? HinhAnh { get; set; }
 
         // === Thông tin bổ sung từ Navigation Properties (ChuDe và DoKho) ===
+        public string TrangThaiDuyet { get; set; } = null!;
 
         public int ChuDeID { get; set; }
         public string TenChuDe { get; set; } = null!; // Tên Chủ đề
