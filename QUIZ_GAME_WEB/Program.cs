@@ -29,20 +29,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy(MyAllowSpecificOrigins, policy =>
     {
-        var origins = new List<string>
-        {
-            "http://localhost:3000",
-            "http://localhost:4200"
-        };
-
-        var clientBaseUrl = builder.Configuration["Client:BaseUrl"];
-        if (!string.IsNullOrEmpty(clientBaseUrl))
-            origins.Add(clientBaseUrl);
-
-        policy.WithOrigins(origins.ToArray())
+        // Allow all origins for development (Android emulator needs this)
+        policy.AllowAnyOrigin()
               .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+              .AllowAnyMethod();
     });
 });
 
