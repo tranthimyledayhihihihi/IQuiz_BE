@@ -29,6 +29,17 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy(MyAllowSpecificOrigins, policy =>
     {
+        if (builder.Environment.IsDevelopment())
+        {
+            policy
+                .SetIsOriginAllowed(_ => true)
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
+            return;
+        }
+
+        // PROD: giữ logic cũ của bạn
         var origins = new List<string>
         {
             "http://localhost:3000",
@@ -45,6 +56,7 @@ builder.Services.AddCors(options =>
               .AllowCredentials();
     });
 });
+
 
 // ===============================================
 // 3. DATABASE
@@ -68,6 +80,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        };
+
+        // QUAN TRỌNG: để SignalR/WebSocket nhận JWT qua query string access_token
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+
+                // Hub của bạn là /matchmakinghub
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    path.StartsWithSegments("/matchmakinghub"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            }
         };
     });
 
@@ -154,7 +185,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
 
 app.UseRouting();
 app.UseCors(MyAllowSpecificOrigins);
