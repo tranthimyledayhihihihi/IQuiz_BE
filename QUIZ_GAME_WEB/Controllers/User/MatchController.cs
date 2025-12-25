@@ -1,50 +1,48 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using QUIZ_GAME_WEB.Models.Interfaces;
-using QUIZ_GAME_WEB.Models.InputModels;
 using System.Security.Claims;
+using System.Threading.Tasks;
 
-[Route("api/trandau")]
-[ApiController]
-[Authorize(AuthenticationSchemes = "Bearer")]
-public class TranDauController : ControllerBase
+namespace QUIZ_GAME_WEB.Controllers
 {
-    private readonly IOnlineMatchService _service;
-
-    public TranDauController(IOnlineMatchService service)
+    [Route("api/trandau")]
+    [ApiController]
+    [Authorize(AuthenticationSchemes = "Bearer")]
+    public class TranDauController : ControllerBase
     {
-        _service = service;
-    }
+        private readonly IOnlineMatchService _service;
+        private readonly ISocketGameServer _socketServer;
 
-    private int GetUserId()
-    {
-        var id = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return int.Parse(id);
-    }
+        public TranDauController(
+            IOnlineMatchService service,
+            ISocketGameServer socketServer)
+        {
+            _service = service;
+            _socketServer = socketServer;
+        }
 
-    [HttpGet("{matchCode}")]
-    public async Task<IActionResult> GetMatch(string matchCode)
-    {
-        var match = await _service.GetMatchByCodeAsync(matchCode);
-        if (match == null) return NotFound();
+        // =====================================================
+        // HELPER
+        // =====================================================
+        private int GetUserId()
+        {
+            var id = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return int.TryParse(id, out var uid) ? uid : 0;
+        }
 
-        return Ok(match);
-    }
 
-    [HttpPost("gui-dap-an/{matchCode}")]
-    public async Task<IActionResult> SubmitAnswer(string matchCode, [FromBody] MatchAnswerModel model)
-    {
-        int id = GetUserId();
-        bool ok = await _service.SubmitAnswerByMatchCodeAsync(matchCode, id, model);
-        if (!ok) return BadRequest();
+        // =====================================================
+        // ONLINE COUNT (API)
+        // =====================================================
+        [HttpGet("online-count")]
+        [AllowAnonymous]
+        public IActionResult GetOnlineCount()
+        {
+            int count = _socketServer.GetOnlineCount();
+            return Ok(new { onlineUsers = count });
+        }
 
-        return NoContent();
-    }
 
-    [HttpPost("ket-thuc/{matchCode}")]
-    public async Task<IActionResult> EndMatch(string matchCode)
-    {
-        var result = await _service.EndMatchByCodeAsync(matchCode);
-        return Ok(result);
     }
 }
