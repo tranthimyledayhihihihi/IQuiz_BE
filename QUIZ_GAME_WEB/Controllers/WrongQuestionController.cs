@@ -8,7 +8,7 @@ namespace QUIZ_GAME_WEB.Controllers
     [Route("api/[controller]")]
     public class WrongQuestionController : ControllerBase
     {
-        private readonly string _connectionString = "Server=LAPTOP-RQMKJHVS\\SQLEXPRESS;Database=QUIZ;Trusted_Connection=true;TrustServerCertificate=true;";
+        private readonly string _connectionString = "Data Source=DESKTOP-7F1S7RF\\SQLEXPRESS02;Initial Catalog=QUIZ_GAME_WEB_DB;Integrated Security=True;Encrypt=True;Trust Server Certificate=True";
 
         [HttpGet("user/{userId}")]
         public IActionResult GetWrongQuestions(int userId)
