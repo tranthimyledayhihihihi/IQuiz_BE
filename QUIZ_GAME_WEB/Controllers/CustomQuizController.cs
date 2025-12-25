@@ -8,7 +8,7 @@ namespace QUIZ_GAME_WEB.Controllers
     [Route("api/[controller]")]
     public class CustomQuizController : ControllerBase
     {
-        private readonly string _connectionString = "Data Source=DESKTOP-7F1S7RF\\SQLEXPRESS02;Initial Catalog=QUIZ_GAME_WEB_DB;Integrated Security=True;Encrypt=True;Trust Server Certificate=True";
+        private readonly string _connectionString = "Data Source=LAPTOP-JGDHOLEA;Initial Catalog=QUIZ_GAME_WEB_DB;Persist Security Info=True;User ID=sa;Password=123456789;Encrypt=True;Trust Server Certificate=True";
 
         [HttpGet("user/{userId}")]
         public IActionResult GetUserCustomQuizzes(int userId)
