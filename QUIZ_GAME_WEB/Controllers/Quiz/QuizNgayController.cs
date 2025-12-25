@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿    using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QUIZ_GAME_WEB.Models.InputModels;
 using QUIZ_GAME_WEB.Models.Interfaces;

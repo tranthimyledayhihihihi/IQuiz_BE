@@ -166,5 +166,15 @@ namespace QUIZ_GAME_WEB.Models.Implementations
                                  .Where(t => t.NguoiDungID == userId)
                                  .ToListAsync();
         }
+
+        public Task<IEnumerable<ThuongNgay>> GetUserRewardsAsync(int userId)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<IEnumerable<object>> GetTopPlayersAsync(int topCount)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
