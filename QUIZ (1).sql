@@ -1202,3 +1202,100 @@ JOIN
     ThanhTuuDefinition D ON T.DefinitionID = D.DefinitionID;
 GO
 
+CREATE TABLE Quiz (
+    QuizID INT IDENTITY PRIMARY KEY,
+    TieuDe NVARCHAR(255),
+    MoTa NVARCHAR(500),
+    AnhBia NVARCHAR(255),
+    IsNoiBat BIT,
+    LuotChoi INT,
+    NgayTao DATETIME DEFAULT GETDATE()
+);
+
+
+-- 1. Thêm cột IsNoiBat
+IF NOT EXISTS (
+    SELECT * FROM INFORMATION_SCHEMA.COLUMNS 
+    WHERE TABLE_NAME = 'QuizTuyChinh' AND COLUMN_NAME = 'IsNoiBat'
+)
+BEGIN
+    ALTER TABLE QuizTuyChinh 
+    ADD IsNoiBat BIT NOT NULL DEFAULT 0;
+    PRINT 'Added column IsNoiBat';
+END
+ELSE
+    PRINT 'Column IsNoiBat already exists';
+GO -- Kết thúc batch tạo cột 1
+
+-- 2. Thêm cột LuotChoi
+IF NOT EXISTS (
+    SELECT * FROM INFORMATION_SCHEMA.COLUMNS 
+    WHERE TABLE_NAME = 'QuizTuyChinh' AND COLUMN_NAME = 'LuotChoi'
+)
+BEGIN
+    ALTER TABLE QuizTuyChinh 
+    ADD LuotChoi INT NOT NULL DEFAULT 0;
+    PRINT 'Added column LuotChoi';
+END
+ELSE
+    PRINT 'Column LuotChoi already exists';
+GO -- Kết thúc batch tạo cột 2
+
+-- 3. Thêm cột AnhBia
+IF NOT EXISTS (
+    SELECT * FROM INFORMATION_SCHEMA.COLUMNS 
+    WHERE TABLE_NAME = 'QuizTuyChinh' AND COLUMN_NAME = 'AnhBia'
+)
+BEGIN
+    ALTER TABLE QuizTuyChinh 
+    ADD AnhBia NVARCHAR(255) NULL;
+    PRINT 'Added column AnhBia';
+END
+ELSE
+    PRINT 'Column AnhBia already exists';
+GO -- Kết thúc batch tạo cột 3
+
+-- THÊM DỮ LIỆU MẪU ĐỂ HIỂN THỊ NHIỀU HƠN TRÊN APP
+-- Sử dụng ảnh ngẫu nhiên từ Unsplash hoặc Picsum để giao diện đẹp hơn
+
+-- Cập nhật Quiz 1
+UPDATE QuizTuyChinh 
+SET IsNoiBat = 1, 
+    LuotChoi = 150, 
+    TrangThai = 'Approved',
+    AnhBia = 'https://images.unsplash.com/photo-1585208798174-7afe72dc0fbb?w=400'
+WHERE QuizTuyChinhID = 1;
+
+-- Cập nhật Quiz 2
+UPDATE QuizTuyChinh 
+SET IsNoiBat = 1, 
+    LuotChoi = 280, 
+    TrangThai = 'Approved',
+    AnhBia = 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=400'
+WHERE QuizTuyChinhID = 2;
+
+-- Nếu bạn có thêm bản ghi, hãy làm nổi bật thêm để danh sách dài hơn
+IF EXISTS (SELECT 1 FROM QuizTuyChinh WHERE QuizTuyChinhID = 3)
+BEGIN
+    UPDATE QuizTuyChinh 
+    SET IsNoiBat = 1, 
+        LuotChoi = 95, 
+        TrangThai = 'Approved',
+        AnhBia = 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=400'
+    WHERE QuizTuyChinhID = 3;
+END
+GO
+
+-- Xem kết quả cuối cùng
+SELECT 
+    QuizTuyChinhID,
+    TenQuiz,
+    MoTa,
+    TrangThai,
+    IsNoiBat,
+    LuotChoi,
+    AnhBia
+FROM QuizTuyChinh
+WHERE IsNoiBat = 1 AND TrangThai = 'Approved'
+ORDER BY LuotChoi DESC;
+GO
