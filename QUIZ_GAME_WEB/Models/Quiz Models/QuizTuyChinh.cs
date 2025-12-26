@@ -65,5 +65,25 @@ namespace QUIZ_GAME_WEB.Models.QuizModels
         // Navigation property: 1 QuizTuyChinh có thể có nhiều QuizAttempt
         [JsonIgnore] // ✅ Ngăn chặn vòng lặp JSON (Rất quan trọng)
         public virtual ICollection<QuizAttempt> QuizAttempts { get; set; } = new List<QuizAttempt>();
-    }
+
+        // ===============================
+        // ⭐ QUIZ NỔI BẬT
+        // ===============================
+
+        /// <summary>
+        /// Quiz có được hiển thị ở mục "Quiz nổi bật" hay không
+        /// </summary>
+        public bool IsNoiBat { get; set; } 
+
+                /// <summary>
+                /// Tổng số lượt chơi (dùng để sắp xếp độ hot)
+                /// </summary>
+                public int LuotChoi { get; set; } = 0;
+
+                /// <summary>
+                /// Ảnh đại diện của Quiz (URL hoặc tên file)
+                /// </summary>
+                [MaxLength(255)]
+                public string? AnhBia { get; set; }
+            }
 }
