@@ -6,6 +6,7 @@ using QUIZ_GAME_WEB.Models.ResultsModels;  // ThanhTuu, ChuoiNgay
 using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using System;
 
 namespace QUIZ_GAME_WEB.Controllers.User
 {
@@ -60,7 +61,7 @@ namespace QUIZ_GAME_WEB.Controllers.User
         // 2. LẤY CHUỖI NGÀY CHƠI (GET: api/user/achievement/streak)
         // ======================================================
         /// <summary>
-        /// Lấy thông tin chuỗi ngày chơi (streak) từ database
+        /// Lấy thông tin chuỗi ngày chơi (streak)
         /// </summary>
         [HttpGet("streak")]
         public async Task<IActionResult> GetMyStreak()
@@ -77,26 +78,14 @@ namespace QUIZ_GAME_WEB.Controllers.User
                 var streak = await _resultRepo.GetUserStreakAsync(userId.Value);
 
                 if (streak == null)
-                {
-                    // Tạo streak mới nếu chưa có
-                    Console.WriteLine($"🔥 DEBUG: No streak found, creating new one");
-                    return Ok(new
-                    {
-                        soNgayLienTiep = 0,
-                        ngayCapNhatCuoi = (DateTime?)null,
-                        message = "Bắt đầu chuỗi ngày chơi của bạn!"
-                    });
-                }
-
-                Console.WriteLine($"🔥 DEBUG: Found streak - {streak.SoNgayLienTiep} days");
+                    // Trả về Streak 0 ngày
+                    return Ok(new { soNgayLienTiep = 0, ngayCapNhatCuoi = (DateTime?)null });
 
                 return Ok(new
                 {
-                    soNgayLienTiep = streak.SoNgayLienTiep,
-                    ngayCapNhatCuoi = streak.NgayCapNhatCuoi,
-                    message = streak.SoNgayLienTiep > 0 ?
-                        $"Bạn đã chơi liên tục {streak.SoNgayLienTiep} ngày!" :
-                        "Hãy bắt đầu chuỗi ngày chơi!"
+                    // streak.UserID, // Không cần thiết lộ UserID
+                    streak.SoNgayLienTiep,
+                    streak.NgayCapNhatCuoi
                 });
             }
             catch (Exception ex)

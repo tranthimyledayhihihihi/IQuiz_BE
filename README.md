@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+# 🎮 QUIZ GAME WEB
 
 # IQuiz
 # QUIZ_GAME_WEB
@@ -17,7 +17,7 @@
 
 ## 📋 Giới thiệu
 
-**QUIZ GAME - ĐẤU TRƯỜNG TRI THỨC** là một ứng dụng game trắc nghiệm được xây dựng trên nền tảng ASP.NET Core 8.0, cho phép người dùng tham gia các bài quiz đa dạng, thi đấu trực tuyến với nhau và theo dõi thành tích qua hệ thống xếp hạng.
+**QUIZ GAME WEB** là một ứng dụng web game trắc nghiệm được xây dựng trên nền tảng ASP.NET Core 8.0, cho phép người dùng tham gia các bài quiz đa dạng, thi đấu trực tuyến với nhau và theo dõi thành tích qua hệ thống xếp hạng.
 
 ---
 
@@ -32,6 +32,23 @@
 | 📊 **Lịch sử chơi** | Xem lại kết quả và phân tích các câu trả lời sai |
 | 🏆 **Bảng xếp hạng** | Theo dõi thứ hạng và so sánh với người chơi khác |
 | 🎁 **Phần thưởng & Thành tựu** | Nhận phần thưởng và mở khóa thành tựu |
+
+### 👨‍💼 Dành cho Quản trị viên
+
+| Tính năng | Mô tả |
+|-----------|-------|
+| 👥 **Quản lý người dùng** | Thêm, sửa, xóa và phân quyền người dùng |
+| ❓ **Quản lý câu hỏi** | Tạo và quản lý kho câu hỏi đa dạng |
+| 📚 **Quản lý chủ đề** | Phân loại câu hỏi theo chủ đề |
+| ⚙️ **Quản lý độ khó** | Thiết lập các mức độ khó cho câu hỏi |
+| 📅 **Quản lý Quiz ngày** | Lên lịch và quản lý quiz hàng ngày |
+| 🏅 **Quản lý bảng xếp hạng** | Giám sát và điều chỉnh hệ thống xếp hạng |
+| 🎖️ **Quản lý thành tựu** | Tạo và quản lý các thành tựu |
+| 🎁 **Quản lý phần thưởng** | Thiết lập phần thưởng cho người chơi |
+| 📈 **Thống kê & Báo cáo** | Xem báo cáo chi tiết hoạt động hệ thống |
+| 🔑 **Quản lý vai trò** | Phân quyền và quản lý vai trò người dùng |
+
+---
 
 ## 🛠️ Công nghệ sử dụng
 
@@ -48,8 +65,8 @@
 ### 🎨 Frontend
 | Công nghệ | Mô tả |
 |-----------|-------|
-| **Java (Android Native)** | Ngôn ngữ chính cho Android Studio |
-| **XML Layouts** | UI Framework để xây dựng giao diện |
+| **ASP.NET MVC** | Web Framework |
+| **HTML/CSS/JavaScript** | Giao diện người dùng |
 
 ---
 
@@ -204,6 +221,153 @@
 
 ---
 
+### 💬 Comment API (Bình luận)
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/social/Comment/{entityType}/{entityId}` | Lấy danh sách bình luận |
+| POST | `/api/social/Comment` | Thêm bình luận mới |
+| PUT | `/api/social/Comment/{id}` | Chỉnh sửa bình luận |
+| DELETE | `/api/social/Comment/{id}` | Xóa bình luận |
+
+---
+
+### 📈 Thống Kê API
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/ThongKe/User/{userId}/Daily` | Thống kê chơi game hằng ngày (30 ngày) |
+| GET | `/api/ThongKe/User/{userId}/Streak` | Chuỗi ngày chơi liên tiếp |
+
+---
+
+## 🔧 ADMIN APIs
+
+> ⚠️ **Yêu cầu quyền**: SuperAdmin hoặc Moderator
+
+---
+
+### 👥 Quản Lý Người Dùng
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/admin/nguoidung` | Danh sách tài khoản (phân trang, lọc) |
+| GET | `/api/admin/nguoidung/{userId}` | Chi tiết tài khoản |
+| POST | `/api/admin/nguoidung/khoa/{userId}` | Khóa tài khoản |
+| POST | `/api/admin/nguoidung/mo-khoa/{userId}` | Mở khóa tài khoản |
+| POST | `/api/admin/nguoidung/phan-quyen/{userId}/{roleId}` | Phân quyền người dùng (SuperAdmin) |
+
+---
+
+### ❓ Quản Lý Câu Hỏi
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/admin/QLCauHoi` | Danh sách câu hỏi (phân trang, lọc) |
+| GET | `/api/admin/QLCauHoi/{id}` | Chi tiết câu hỏi |
+| POST | `/api/admin/QLCauHoi` | Tạo câu hỏi mới |
+| PUT | `/api/admin/QLCauHoi/{id}` | Cập nhật câu hỏi |
+| DELETE | `/api/admin/QLCauHoi/{id}` | Xóa câu hỏi (SuperAdmin) |
+
+---
+
+### 📚 Quản Lý Chủ Đề
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/admin/QLChuDe` | Danh sách chủ đề |
+| POST | `/api/admin/QLChuDe` | Thêm chủ đề mới |
+| PUT | `/api/admin/QLChuDe/{id}` | Cập nhật chủ đề |
+| DELETE | `/api/admin/QLChuDe/{id}` | Xóa chủ đề |
+
+---
+
+### ⚙️ Quản Lý Độ Khó
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/admin/dokho` | Danh sách độ khó |
+| GET | `/api/admin/dokho/{doKhoId}` | Chi tiết độ khó |
+| POST | `/api/admin/dokho` | Thêm độ khó mới |
+| PUT | `/api/admin/dokho/{doKhoId}` | Cập nhật độ khó |
+| DELETE | `/api/admin/dokho/{doKhoId}` | Xóa độ khó (SuperAdmin) |
+
+---
+
+### 📅 Quản Lý Quiz Ngày
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/admin/quiz-ngay/lich-trinh` | Lịch trình Quiz Ngày theo tháng/năm |
+| POST | `/api/admin/quiz-ngay/set-daily` | Thiết lập câu hỏi cho ngày cụ thể |
+
+---
+
+### 🎨 Quản Lý Quiz Tùy Chỉnh
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/admin/quiz-tuy-chinh` | Danh sách quiz tùy chỉnh |
+| GET | `/api/admin/quiz-tuy-chinh/{id}` | Chi tiết quiz + danh sách câu hỏi |
+| POST | `/api/admin/quiz-tuy-chinh/{id}/phe-duyet` | Phê duyệt quiz |
+| POST | `/api/admin/quiz-tuy-chinh/{id}/tu-choi` | Từ chối quiz |
+| DELETE | `/api/admin/quiz-tuy-chinh/{id}` | Xóa quiz (SuperAdmin) |
+
+---
+
+### 🏆 Quản Lý Bảng Xếp Hạng
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/admin/bxh/top-global` | Top người chơi toàn server |
+| GET | `/api/admin/bxh/today-stats` | Thống kê hoạt động hôm nay |
+
+---
+
+### 🎖️ Quản Lý Thành Tựu
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/admin/thanhtuu` | Danh sách định nghĩa thành tựu |
+| GET | `/api/admin/thanhtuu/{thanhTuuId}` | Chi tiết thành tựu |
+| POST | `/api/admin/thanhtuu` | Tạo thành tựu mới |
+| PUT | `/api/admin/thanhtuu/{thanhTuuId}` | Cập nhật thành tựu |
+| DELETE | `/api/admin/thanhtuu/{thanhTuuId}` | Xóa thành tựu (SuperAdmin) |
+
+---
+
+### 🎁 Quản Lý Phần Thưởng
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/admin/phan-thuong/lich-su` | Lịch sử nhận thưởng (phân trang) |
+| POST | `/api/admin/phan-thuong/tang-qua` | Tặng quà cho người dùng |
+| DELETE | `/api/admin/phan-thuong/{id}` | Xóa bản ghi thưởng |
+
+---
+
+### 🔑 Quản Lý Vai Trò (SuperAdmin)
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/admin/vaitro` | Danh sách vai trò |
+| GET | `/api/admin/vaitro/{id}` | Chi tiết vai trò và quyền đi kèm |
+| POST | `/api/admin/vaitro` | Tạo vai trò mới |
+| POST | `/api/admin/vaitro/{roleId}/gan-quyen` | Gán quyền cho vai trò |
+| DELETE | `/api/admin/vaitro/{id}` | Xóa vai trò |
+
+---
+
+### 📱 Quản Lý Phiên Đăng Nhập
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/admin/phiendangnhap` | Danh sách phiên (phân trang, lọc) |
+| GET | `/api/admin/phiendangnhap/{sessionId}` | Chi tiết phiên đăng nhập |
+| POST | `/api/admin/phiendangnhap/buoc-dang-xuat/{sessionId}` | Buộc đăng xuất (SuperAdmin) |
+
+---
+
 ## 🎯 Kiến trúc hệ thống
 
 ```mermaid
@@ -242,7 +406,7 @@ Dự án được phát triển cho mục đích học tập.
 
 **⭐ Nếu thấy hữu ích, hãy cho dự án một star nhé! ⭐**
 
-Made with nhóm 7 - 125LTTD02 ❤️
+Made with ❤️
 
 </div>
 >>>>>>> 254bf645acd6649215f82b3c0578d550afcda73f

@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using QUIZ_GAME_WEB.Models.CoreEntities;
 using System; // Cần thiết cho DateTime.Now nếu bạn thêm thời gian đạt được
