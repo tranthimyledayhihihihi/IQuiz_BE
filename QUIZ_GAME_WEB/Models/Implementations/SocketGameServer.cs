@@ -11,7 +11,7 @@ namespace QUIZ_GAME_WEB.Models.Implementations
     public class SocketGameServer : ISocketGameServer
     {
         private readonly IServiceProvider _serviceProvider;
-
+        
         // ===============================
         // SOCKET + MATCH STORAGE
         // ===============================
@@ -193,7 +193,7 @@ namespace QUIZ_GAME_WEB.Models.Implementations
                         await Send(playerId, new
                         {
                             Type = "ROOM_EXPIRED",
-                            Data = new { message = "Phòng đã hết hạn (5 phút không có người vào)" }
+                            Data = new { message = "Phòng đã hết hạn (60 giây không có người vào)" }
                         });
                     }
                 }
