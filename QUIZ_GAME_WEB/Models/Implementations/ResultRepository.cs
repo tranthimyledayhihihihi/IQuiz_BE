@@ -20,6 +20,7 @@ namespace QUIZ_GAME_WEB.Models.Implementations
             _context = context;
         }
 
+
         // ===============================================
         // I. CÁC HÀM TRUY VẤN CƠ BẢN & THAO TÁC
         // ===============================================
@@ -124,6 +125,18 @@ namespace QUIZ_GAME_WEB.Models.Implementations
         // ===============================================
         // III. CÁC HÀM TRUY VẤN KHÁC (Thống kê/Achievement)
         // ===============================================
+        public async Task<List<CauSai>> GetWrongAnswersByTopicAsync(int userId, int chuDeId)
+        {
+            return await _context.CauSais
+                .Include(cs => cs.CauHoi)
+                    .ThenInclude(ch => ch.ChuDe)
+                .Where(cs =>
+                    cs.UserID == userId &&
+                    cs.CauHoi.ChuDeID == chuDeId
+                )
+                .OrderByDescending(cs => cs.NgaySai)
+                .ToListAsync();
+        }
 
         public async Task<IEnumerable<CauSai>> GetRecentWrongAnswersAsync(int userId, int limit = 10)
         {

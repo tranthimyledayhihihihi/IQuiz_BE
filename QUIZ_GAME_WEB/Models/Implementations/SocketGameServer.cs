@@ -11,7 +11,7 @@ namespace QUIZ_GAME_WEB.Models.Implementations
     public class SocketGameServer : ISocketGameServer
     {
         private readonly IServiceProvider _serviceProvider;
-        
+
         // ===============================
         // SOCKET + MATCH STORAGE
         // ===============================
@@ -193,7 +193,7 @@ namespace QUIZ_GAME_WEB.Models.Implementations
                         await Send(playerId, new
                         {
                             Type = "ROOM_EXPIRED",
-                            Data = new { message = "Phòng đã hết hạn (5 phút không có người vào)" }
+                            Data = new { message = "Phòng đã hết hạn (60 giây không có người vào)" }
                         });
                     }
                 }
@@ -235,12 +235,6 @@ namespace QUIZ_GAME_WEB.Models.Implementations
             if (string.IsNullOrEmpty(matchCode)) return;
 
             Console.WriteLine($"🎮 Starting match {matchCode} between {p1} and {p2}");
-            if (string.IsNullOrEmpty(matchCode))
-            {
-                await Send(p1, new { Type = "ERROR", Data = new { message = "Không tạo được trận: thiếu câu hỏi Approved hoặc cấu hình câu hỏi không hợp lệ." } });
-                await Send(p2, new { Type = "ERROR", Data = new { message = "Không tạo được trận: thiếu câu hỏi Approved hoặc cấu hình câu hỏi không hợp lệ." } });
-                return;
-            }
 
             // Join both players to match room ngay lập tức
             JoinMatchRoom(p1, matchCode);
@@ -249,7 +243,6 @@ namespace QUIZ_GAME_WEB.Models.Implementations
             // Notify both players
             await Send(p1, new { Type = "MATCH_FOUND", Data = new { matchCode, opponentId = p2, yourRole = "Player1" } });
             await Send(p2, new { Type = "MATCH_FOUND", Data = new { matchCode, opponentId = p1, yourRole = "Player2" } });
-        }
 
             Console.WriteLine($"✅ Both players notified, waiting for them to join match page...");
         }
@@ -280,30 +273,15 @@ namespace QUIZ_GAME_WEB.Models.Implementations
             var questions = await matchService.GetQuestionsByMatchCodeAsync(matchCode);
 
             if (questions == null || !questions.Any())
-            int actual = questions?.Count() ?? 0;
-
-            if (actual == 0)
             {
                 Console.WriteLine($"❌ ERROR: No questions found for match {matchCode}!");
                 await Broadcast(matchCode, new
                 {
                     Type = "ERROR",
                     Data = new { message = "Không tìm thấy câu hỏi cho trận đấu này!" }
-                    Data = new { message = "Không có câu hỏi để chơi." }
                 });
                 return;
             }
-
-            // Nếu ít câu thì vẫn chơi, chỉ cảnh báo
-            if (actual < 10)
-            {
-                await Broadcast(matchCode, new
-                {
-                    Type = "INFO",
-                    Data = new { message = $"Chỉ có {actual} câu hỏi, trận sẽ chơi với {actual} câu." }
-                });
-            }
-
 
             Console.WriteLine($"✅ Found {questions.Count()} questions for match {matchCode}");
 

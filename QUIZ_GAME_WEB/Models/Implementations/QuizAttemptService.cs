@@ -1,4 +1,6 @@
-﻿using QUIZ_GAME_WEB.Models.InputModels;
+﻿using Microsoft.EntityFrameworkCore;
+using QUIZ_GAME_WEB.Data;
+using QUIZ_GAME_WEB.Models.InputModels;
 using QUIZ_GAME_WEB.Models.Interfaces;
 using QUIZ_GAME_WEB.Models.QuizModels;
 using QUIZ_GAME_WEB.Models.ResultsModels;
@@ -11,8 +13,20 @@ using System.Threading.Tasks;
 namespace QUIZ_GAME_WEB.Models.Implementations
 {
     public class QuizAttemptService : IQuizAttemptService
+
     {
+        private readonly QuizGameContext _context;
         private readonly IUnitOfWork _unitOfWork;
+
+        // ✅ DUY NHẤT 1 CONSTRUCTOR – HẾT AMBIGUOUS
+        public QuizAttemptService(
+            QuizGameContext context,
+            IUnitOfWork unitOfWork
+        )
+        {
+            _context = context;
+            _unitOfWork = unitOfWork;
+        }
 
         // BỎ ID TẠM THỜI: ID sẽ được DB tự động tạo
         private static readonly Dictionary<int, QuizSessionData> _activeSessions = new();
@@ -129,39 +143,44 @@ namespace QUIZ_GAME_WEB.Models.Implementations
         // ... (Các hàm GetNextQuestionAsync và SubmitAnswerAsync giữ nguyên)
 
         // 3. Nộp đáp án (Không đổi, vì nó chỉ cập nhật session trong memory và thêm CauSai vào DB)
-        public async Task<(bool, string)> SubmitAnswerAsync(AnswerSubmitModel answer)
+        public async Task<(bool IsCorrect, string CorrectAnswer)> SubmitAnswerAsync(AnswerSubmitModel answer)
         {
-            if (!_activeSessions.ContainsKey(answer.QuizAttemptID))
-                throw new Exception("Phiên làm bài không tồn tại.");
+            var cauHoi = await _context.CauHois.FindAsync(answer.CauHoiID);
+            if (cauHoi == null)
+                throw new Exception("Không tìm thấy câu hỏi.");
 
-            var session = _activeSessions[answer.QuizAttemptID];
+            // 🔴 ĐỔI DapAn thành đúng field của bạn
+            bool isCorrect = string.Equals(
+                cauHoi.DapAnDung?.Trim(),
+                answer.DapAnDaChon?.Trim(),   // ← đổi nếu field khác
+                StringComparison.OrdinalIgnoreCase
+            );
 
-            var correct = await _unitOfWork.Quiz.GetCorrectAnswerAsync(answer.CauHoiID);
-            bool isCorrect = correct?.Equals(answer.DapAnDaChon, StringComparison.OrdinalIgnoreCase) ?? false;
-
-            if (isCorrect)
+            if (!isCorrect)
             {
-                session.CorrectAnswers++;
-            }
-            else
-            {
-                var cauSai = new CauSai
+                bool existed = await _context.CauSais.AnyAsync(cs =>
+                    cs.UserID == answer.UserID &&
+                    cs.CauHoiID == answer.CauHoiID &&
+                    cs.QuizAttemptID == answer.QuizAttemptID
+                );
+
+                if (!existed)
                 {
-                    UserID = answer.UserID,
-                    CauHoiID = answer.CauHoiID,
-                    QuizAttemptID = answer.QuizAttemptID,
-                    NgaySai = DateTime.Now
-                };
+                    _context.CauSais.Add(new CauSai
+                    {
+                        UserID = answer.UserID,
+                        CauHoiID = answer.CauHoiID,
+                        QuizAttemptID = answer.QuizAttemptID,
+                        NgaySai = DateTime.Now
+                    });
 
-                await _unitOfWork.Results.AddCauSaiAsync(cauSai);
-                await _unitOfWork.CompleteAsync();
+                    await _context.SaveChangesAsync();
+                }
             }
 
-            session.QuizAttempt.SoCauHoiLam++;
-            session.QuizAttempt.SoCauDung = session.CorrectAnswers;
-
-            return (isCorrect, correct);
+            return (isCorrect, cauHoi.DapAnDung ?? "");
         }
+
 
         // 4. Kết thúc bài
         public async Task<KetQua> EndAttemptAndCalculateResultAsync(int attemptId, int userId)

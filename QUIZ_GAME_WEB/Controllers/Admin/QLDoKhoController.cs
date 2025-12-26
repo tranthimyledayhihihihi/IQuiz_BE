@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using QUIZ_GAME_WEB.Models.Input_Models.QUIZ_GAME_WEB.Models.InputModels;
+using QUIZ_GAME_WEB.Models.InputModels.QUIZ_GAME_WEB.Models.InputModels;
 using QUIZ_GAME_WEB.Models.Interfaces;
 using QUIZ_GAME_WEB.Models.QuizModels;
 using System.Linq;

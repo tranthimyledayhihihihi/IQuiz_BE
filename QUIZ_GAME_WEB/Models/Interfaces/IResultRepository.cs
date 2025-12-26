@@ -48,5 +48,7 @@ namespace QUIZ_GAME_WEB.Models.Interfaces
         /// Lấy chi tiết kết quả bài làm dựa trên Attempt ID (kèm kiểm tra quyền sở hữu).
         /// </summary>
         Task<KetQuaDetailDto?> GetResultDetailByAttemptIdAsync(int attemptId, int userId);
+        Task<List<CauSai>> GetWrongAnswersByTopicAsync(int userId, int chuDeId);
+
     }
 }

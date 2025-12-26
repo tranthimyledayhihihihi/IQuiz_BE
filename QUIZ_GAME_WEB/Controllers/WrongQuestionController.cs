@@ -11,7 +11,7 @@ namespace QUIZ_GAME_WEB.Controllers
     public class WrongQuestionController : ControllerBase
     {
         private readonly string _connectionString =
-            "Data Source=QUANGQUANG;Initial Catalog=QUIZ_GAME_WEB_DB;User ID=sa;Password=123;Encrypt=True;Trust Server Certificate=True";
+            "Data Source=LAPTOP-JGDHOLEA;Initial Catalog=QUIZ_GAME_WEB_DB;Persist Security Info=True;User ID=sa;Password=123456789;Encrypt=True;Trust Server Certificate=True";
 
         // =====================================================
         // LẤY USERID TỪ JWT
