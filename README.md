@@ -25,7 +25,6 @@
 | 🤝 **Quiz chia sẻ** | Chia sẻ quiz với bạn bè và cộng đồng |
 | ⚔️ **Chế độ đối kháng** | Thi đấu trực tuyến real-time với người chơi khác |
 | 📊 **Lịch sử chơi** | Xem lại kết quả và phân tích các câu trả lời sai |
-| 🏆 **Bảng xếp hạng** | Theo dõi thứ hạng và so sánh với người chơi khác |
 | 🎁 **Phần thưởng & Thành tựu** | Nhận phần thưởng và mở khóa thành tựu |
 
 ## 🛠️ Công nghệ sử dụng
