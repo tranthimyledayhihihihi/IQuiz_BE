@@ -188,13 +188,7 @@
 
 ---
 
-### 🏅 Ranking API (Bảng xếp hạng)
 
-| Method | Endpoint | Mô tả |
-|--------|----------|-------|
-| GET | `/api/Ranking/leaderboard` | BXH tuần/tháng (phân trang) |
-| GET | `/api/Ranking/achievements/my` | Thành tựu của tôi |
-| GET | `/api/Ranking/online-count` | Tổng số người đang online |
 
 ---
 
